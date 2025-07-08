@@ -4,7 +4,8 @@ use uuid::Uuid;
 #[derive(FromRow, Debug, PartialEq)]
 pub struct Note {
     pub id: Uuid,
-    pub encrypted_markdown: String,
+    pub encrypted_markdown: Vec<u8>,
+    pub nonce: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, note: &Note) -> anyhow::Result<()>
@@ -13,12 +14,13 @@ where
 {
     sqlx::query(
         r#"
-        INSERT INTO notes (id, encrypted_markdown)
-        VALUES (?1, ?2)
+        INSERT INTO notes (id, encrypted_markdown, nonce)
+        VALUES (?1, ?2, ?3)
         "#,
     )
     .bind(&note.id)
     .bind(&note.encrypted_markdown)
+    .bind(&note.nonce)
     .execute(executor)
     .await?;
 
@@ -31,7 +33,7 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, encrypted_markdown
+        SELECT id, encrypted_markdown, nonce
         FROM notes
         WHERE id = ?1
         "#,
@@ -54,7 +56,8 @@ mod tests {
 
         let note = Note {
             id: Uuid::new_v4(),
-            encrypted_markdown: "1234".to_string(),
+            encrypted_markdown: vec![1, 2, 3, 4],
+            nonce: vec![5, 6, 7, 8],
         };
 
         notes::create(&pool, &note)
@@ -76,16 +79,18 @@ mod tests {
         // Populate database
 
         let id = Uuid::new_v4();
-        let encrypted_markdown = "1234".to_string();
+        let encrypted_markdown = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO notes (id, encrypted_markdown)
-            VALUES (?1, ?2)
+            INSERT INTO notes (id, encrypted_markdown, nonce)
+            VALUES (?1, ?2, ?3)
             "#,
         )
         .bind(&id)
         .bind(&encrypted_markdown)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert note");
@@ -98,7 +103,8 @@ mod tests {
                 .expect("failed to get note by id"),
             Note {
                 id,
-                encrypted_markdown
+                encrypted_markdown,
+                nonce
             }
         )
     }

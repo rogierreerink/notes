@@ -6,7 +6,8 @@ pub struct NoteKey {
     pub id: Uuid,
     pub note_id: Uuid,
     pub user_id: Uuid,
-    pub encrypted_key: String,
+    pub encrypted_key: Vec<u8>,
+    pub nonce: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, note_key: &NoteKey) -> anyhow::Result<()>
@@ -15,14 +16,15 @@ where
 {
     sqlx::query(
         r#"
-        INSERT INTO note_keys (id, note_id, user_id, encrypted_key)
-        VALUES (?1, ?2, ?3, ?4)
+        INSERT INTO note_keys (id, note_id, user_id, encrypted_key, nonce)
+        VALUES (?1, ?2, ?3, ?4, ?5)
         "#,
     )
     .bind(&note_key.id)
     .bind(&note_key.note_id)
     .bind(&note_key.user_id)
     .bind(&note_key.encrypted_key)
+    .bind(&note_key.nonce)
     .execute(executor)
     .await?;
 
@@ -35,7 +37,7 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, note_id, user_id, encrypted_key
+        SELECT id, note_id, user_id, encrypted_key, nonce
         FROM note_keys
         WHERE id = ?1
         "#,
@@ -59,16 +61,18 @@ mod tests {
         // Populate database
 
         let note_id = Uuid::new_v4();
-        let encryted_markdown = "1234".to_string();
+        let encryted_markdown = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO notes (id, encrypted_markdown)
-            VALUES (?1, ?2)
+            INSERT INTO notes (id, encrypted_markdown, nonce)
+            VALUES (?1, ?2, ?3)
             "#,
         )
         .bind(&note_id)
         .bind(&encryted_markdown)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert note");
@@ -94,7 +98,8 @@ mod tests {
             id: Uuid::new_v4(),
             note_id,
             user_id,
-            encrypted_key: "5678".to_string(),
+            encrypted_key: vec![1, 2, 3, 4],
+            nonce: vec![5, 6, 7, 8],
         };
 
         note_keys::create(&pool, &note_key)
@@ -116,16 +121,18 @@ mod tests {
         // Populate database
 
         let note_id = Uuid::new_v4();
-        let encryted_markdown = "1234".to_string();
+        let encryted_markdown = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO notes (id, encrypted_markdown)
-            VALUES (?1, ?2)
+            INSERT INTO notes (id, encrypted_markdown, nonce)
+            VALUES (?1, ?2, ?3)
             "#,
         )
         .bind(&note_id)
         .bind(&encryted_markdown)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert note");
@@ -146,18 +153,20 @@ mod tests {
         .expect("failed to insert user");
 
         let id = Uuid::new_v4();
-        let encrypted_key = "5678".to_string();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO note_keys (id, note_id, user_id, encrypted_key)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO note_keys (id, note_id, user_id, encrypted_key, nonce)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&note_id)
         .bind(&user_id)
         .bind(&encrypted_key)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert note_key");
@@ -172,7 +181,8 @@ mod tests {
                 id,
                 note_id,
                 user_id,
-                encrypted_key
+                encrypted_key,
+                nonce
             }
         )
     }

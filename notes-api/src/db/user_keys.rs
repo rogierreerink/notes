@@ -5,7 +5,8 @@ use uuid::Uuid;
 pub struct UserKey {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub encrypted_key: String,
+    pub encrypted_key: Vec<u8>,
+    pub nonce: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, user_key: &UserKey) -> anyhow::Result<()>
@@ -14,13 +15,14 @@ where
 {
     sqlx::query(
         r#"
-        INSERT INTO user_keys (id, user_id, encrypted_key)
-        VALUES (?1, ?2, ?3)
+        INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
+        VALUES (?1, ?2, ?3, ?4)
         "#,
     )
     .bind(&user_key.id)
     .bind(&user_key.user_id)
     .bind(&user_key.encrypted_key)
+    .bind(&user_key.nonce)
     .execute(executor)
     .await?;
 
@@ -33,7 +35,7 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, encrypted_key
+        SELECT id, user_id, encrypted_key, nonce
         FROM user_keys
         WHERE id = ?1
         "#,
@@ -76,7 +78,8 @@ mod tests {
         let user_key = UserKey {
             id: Uuid::new_v4(),
             user_id,
-            encrypted_key: "1234".to_string(),
+            encrypted_key: vec![1, 2, 3, 4],
+            nonce: vec![5, 6, 7, 8],
         };
 
         user_keys::create(&pool, &user_key)
@@ -113,17 +116,19 @@ mod tests {
         .expect("failed to insert user");
 
         let id = Uuid::new_v4();
-        let encrypted_key = "1234".to_string();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key)
-            VALUES (?1, ?2, ?3)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
+            VALUES (?1, ?2, ?3, ?4)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&encrypted_key)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
@@ -137,7 +142,8 @@ mod tests {
             UserKey {
                 id,
                 user_id,
-                encrypted_key
+                encrypted_key,
+                nonce
             }
         )
     }

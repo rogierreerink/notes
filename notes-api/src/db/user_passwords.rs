@@ -47,6 +47,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use utilities::db::init_db;
     use uuid::Uuid;
 
@@ -74,17 +76,19 @@ mod tests {
         .expect("failed to insert user");
 
         let user_key_id = Uuid::new_v4();
-        let encrypted_key = "1234".to_string();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key)
-            VALUES (?1, ?2, ?3)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
+            VALUES (?1, ?2, ?3, ?4)
             "#,
         )
         .bind(&user_key_id)
         .bind(&user_id)
         .bind(&encrypted_key)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
@@ -132,17 +136,19 @@ mod tests {
         .expect("failed to insert user");
 
         let user_key_id = Uuid::new_v4();
-        let encrypted_key = "1234".to_string();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key)
-            VALUES (?1, ?2, ?3)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
+            VALUES (?1, ?2, ?3, ?4)
             "#,
         )
         .bind(&user_key_id)
         .bind(&user_id)
         .bind(&encrypted_key)
+        .bind(&nonce)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
