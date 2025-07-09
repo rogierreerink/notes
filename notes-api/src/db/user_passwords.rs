@@ -7,6 +7,7 @@ pub struct UserPassword {
     pub user_id: Uuid,
     pub user_key_id: Uuid,
     pub password_hash: Vec<u8>,
+    pub salt: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, user_password: &UserPassword) -> anyhow::Result<()>
@@ -15,14 +16,15 @@ where
 {
     sqlx::query(
         r#"
-        INSERT INTO user_passwords (id, user_id, user_key_id, password_hash)
-        VALUES (?1, ?2, ?3, ?4)
+        INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+        VALUES (?1, ?2, ?3, ?4, ?5)
         "#,
     )
     .bind(&user_password.id)
     .bind(&user_password.user_id)
     .bind(&user_password.user_key_id)
     .bind(&user_password.password_hash)
+    .bind(&user_password.salt)
     .execute(executor)
     .await?;
 
@@ -35,7 +37,7 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, user_key_id, password_hash
+        SELECT id, user_id, user_key_id, password_hash, salt
         FROM user_passwords
         WHERE id = ?1
         "#,
@@ -51,7 +53,7 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, user_key_id, password_hash
+        SELECT id, user_id, user_key_id, password_hash, salt
         FROM user_passwords
         WHERE user_id = ?1
         "#,
@@ -118,6 +120,7 @@ mod tests {
             user_id,
             user_key_id,
             password_hash: vec![1, 2, 3, 4],
+            salt: vec![4, 3, 2, 1],
         };
 
         user_passwords::create(&pool, &user_password)
@@ -175,17 +178,19 @@ mod tests {
 
         let id = Uuid::new_v4();
         let password_hash = vec![1, 2, 3, 4];
+        let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&user_key_id)
         .bind(&password_hash)
+        .bind(&salt)
         .execute(&pool)
         .await
         .expect("failed to insert user password");
@@ -200,7 +205,8 @@ mod tests {
                 id,
                 user_id,
                 user_key_id,
-                password_hash
+                password_hash,
+                salt
             }
         )
     }
@@ -248,17 +254,19 @@ mod tests {
 
         let id = Uuid::new_v4();
         let password_hash = vec![1, 2, 3, 4];
+        let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&user_key_id)
         .bind(&password_hash)
+        .bind(&salt)
         .execute(&pool)
         .await
         .expect("failed to insert user password");
@@ -273,7 +281,8 @@ mod tests {
                 id,
                 user_id,
                 user_key_id,
-                password_hash
+                password_hash,
+                salt
             }
         )
     }

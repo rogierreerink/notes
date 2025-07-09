@@ -38,30 +38,42 @@ impl<'a> UserSession<'a> {
                 // Get the user password entry from the database
                 let user_password = db::user_passwords::get_by_user_id(&mut *tx, user_id).await?;
 
-                // Check that the password hashes match...
-                // TODO!
+                // Recreate the user password hash from `password` and user password salt
+                let user_password_salt = SaltString::encode_b64(&user_password.salt).unwrap();
+                let user_password_hash = Argon2::default()
+                    .hash_password(password.as_bytes(), &user_password_salt)
+                    .expect("failed to hash user password")
+                    .hash
+                    .expect("failed to get user password hash")
+                    .as_bytes()[..32]
+                    .to_vec();
+
+                // Check that the stored hash matches the recreated hash
+                if user_password.password_hash != user_password_hash {
+                    todo!("incorrect password")
+                }
 
                 // Get the user key from the database
                 let user_key =
                     db::user_keys::get_by_id(&mut *tx, &user_password.user_key_id).await?;
 
                 // Recreate the encryption key from the user password and user key salt
-                let user_password_salt = SaltString::encode_b64(&user_key.salt).unwrap();
-                let user_password_hash = Argon2::default()
-                    .hash_password(password.as_bytes(), &user_password_salt)
-                    .expect("failed to hash password")
+                let user_key_password_salt = SaltString::encode_b64(&user_key.salt).unwrap();
+                let user_key_password_hash = Argon2::default()
+                    .hash_password(password.as_bytes(), &user_key_password_salt)
+                    .expect("failed to hash user key password")
                     .hash
-                    .expect("failed to get password hash")
+                    .expect("failed to get user password key hash")
                     .as_bytes()[..32]
                     .to_vec();
 
                 // Decrypt the user key
-                let key = Key::<Aes256Gcm>::from_slice(&user_password_hash);
-                let nonce = Nonce::from_slice(&user_key.nonce);
+                let user_key_key = Key::<Aes256Gcm>::from_slice(&user_key_password_hash);
+                let user_key_nonce = Nonce::from_slice(&user_key.nonce);
                 *Key::<Aes256Gcm>::from_slice(
-                    &Aes256Gcm::new(&key)
+                    &Aes256Gcm::new(&user_key_key)
                         .decrypt(
-                            nonce,
+                            user_key_nonce,
                             aes_gcm::aead::Payload {
                                 msg: &user_key.encrypted_key,
                                 aad: &vec![],
@@ -146,7 +158,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        db,
+        db::{self},
         services::user_sessions::{UserAuthentication, UserSession},
     };
 
@@ -194,22 +206,22 @@ mod tests {
         .expect("failed to create user");
 
         let user_password = "1234".to_string();
-        let user_password_salt = SaltString::generate(&mut OsRng);
-        let user_password_hash = Argon2::default()
-            .hash_password(user_password.as_bytes(), &user_password_salt)
-            .expect("failed to hash password")
+
+        let user_key_password_salt = SaltString::generate(&mut OsRng);
+        let user_key_password_hash = Argon2::default()
+            .hash_password(user_password.as_bytes(), &user_key_password_salt)
+            .expect("failed to hash user password")
             .hash
-            .expect("failed to get password hash")
+            .expect("failed to get user password hash")
             .as_bytes()[..32]
             .to_vec();
-
-        let mut user_password_salt_buf = vec![0; 16];
-        user_password_salt
-            .decode_b64(&mut user_password_salt_buf)
-            .expect("failed to decode user password hash");
+        let mut user_key_password_salt_buf = vec![0; 16];
+        user_key_password_salt
+            .decode_b64(&mut user_key_password_salt_buf)
+            .expect("failed to decode user password salt");
 
         let user_key_id = Uuid::new_v4();
-        let user_key = Key::<Aes256Gcm>::from_slice(&user_password_hash);
+        let user_key = Key::<Aes256Gcm>::from_slice(&user_key_password_hash);
         let user_key_nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let user_key_ciphertext = Aes256Gcm::new(&user_key)
             .encrypt(&user_key_nonce, user_key.as_ref())
@@ -222,22 +234,34 @@ mod tests {
                 user_id,
                 encrypted_key: user_key_ciphertext,
                 nonce: user_key_nonce.to_vec(),
-                salt: user_password_salt_buf,
+                salt: user_key_password_salt_buf,
             },
         )
         .await
         .expect("failed to create user key");
 
-        let password_id = Uuid::new_v4();
-        let password_hash = vec![1, 2, 3, 4];
+        let user_password_id = Uuid::new_v4();
+        let user_password_salt = SaltString::generate(&mut OsRng);
+        let user_password_hash = Argon2::default()
+            .hash_password(user_password.as_bytes(), &user_password_salt)
+            .expect("failed to hash user password")
+            .hash
+            .expect("failed to get user password hash")
+            .as_bytes()[..32]
+            .to_vec();
+        let mut user_password_salt_buf = vec![0; 16];
+        user_password_salt
+            .decode_b64(&mut user_password_salt_buf)
+            .expect("failed to decode user password salt");
 
         db::user_passwords::create(
             &pool,
             &db::user_passwords::UserPassword {
-                id: password_id,
+                id: user_password_id,
                 user_id,
                 user_key_id,
-                password_hash,
+                password_hash: user_password_hash,
+                salt: user_password_salt_buf,
             },
         )
         .await
