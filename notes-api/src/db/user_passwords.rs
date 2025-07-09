@@ -6,7 +6,7 @@ pub struct UserPassword {
     pub id: Uuid,
     pub user_id: Uuid,
     pub user_key_id: Uuid,
-    pub password_hash: String,
+    pub password_hash: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, user_password: &UserPassword) -> anyhow::Result<()>
@@ -45,6 +45,22 @@ where
     .await?)
 }
 
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPassword>
+where
+    E: SqliteExecutor<'e>,
+{
+    Ok(sqlx::query_as(
+        r#"
+        SELECT id, user_id, user_key_id, password_hash
+        FROM user_passwords
+        WHERE user_id = ?1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(executor)
+    .await?)
+}
+
 #[cfg(test)]
 mod tests {
     use std::vec;
@@ -78,17 +94,19 @@ mod tests {
         let user_key_id = Uuid::new_v4();
         let encrypted_key = vec![1, 2, 3, 4];
         let nonce = vec![5, 6, 7, 8];
+        let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&user_key_id)
         .bind(&user_id)
         .bind(&encrypted_key)
         .bind(&nonce)
+        .bind(&salt)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
@@ -99,7 +117,7 @@ mod tests {
             id: Uuid::new_v4(),
             user_id,
             user_key_id,
-            password_hash: "5678".to_string(),
+            password_hash: vec![1, 2, 3, 4],
         };
 
         user_passwords::create(&pool, &user_password)
@@ -138,23 +156,25 @@ mod tests {
         let user_key_id = Uuid::new_v4();
         let encrypted_key = vec![1, 2, 3, 4];
         let nonce = vec![5, 6, 7, 8];
+        let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&user_key_id)
         .bind(&user_id)
         .bind(&encrypted_key)
         .bind(&nonce)
+        .bind(&salt)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
 
         let id = Uuid::new_v4();
-        let password_hash = "5678".to_string();
+        let password_hash = vec![1, 2, 3, 4];
 
         sqlx::query(
             r#"
@@ -176,6 +196,79 @@ mod tests {
             user_passwords::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user password by id"),
+            UserPassword {
+                id,
+                user_id,
+                user_key_id,
+                password_hash
+            }
+        )
+    }
+
+    #[tokio::test]
+    async fn get_by_user_id() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let user_id = Uuid::new_v4();
+        let username = "test".to_string();
+
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, username)
+            VALUES (?1, ?2)
+            "#,
+        )
+        .bind(&user_id)
+        .bind(&username)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user");
+
+        let user_key_id = Uuid::new_v4();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
+        let salt = vec![4, 3, 2, 1];
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+        )
+        .bind(&user_key_id)
+        .bind(&user_id)
+        .bind(&encrypted_key)
+        .bind(&nonce)
+        .bind(&salt)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user key");
+
+        let id = Uuid::new_v4();
+        let password_hash = vec![1, 2, 3, 4];
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash)
+            VALUES (?1, ?2, ?3, ?4)
+            "#,
+        )
+        .bind(&id)
+        .bind(&user_id)
+        .bind(&user_key_id)
+        .bind(&password_hash)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user password");
+
+        // Perform test
+
+        assert_eq!(
+            user_passwords::get_by_user_id(&pool, &user_id)
+                .await
+                .expect("failed to get user password by user id"),
             UserPassword {
                 id,
                 user_id,

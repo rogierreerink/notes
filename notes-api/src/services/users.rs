@@ -1,21 +1,32 @@
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
-use crate::{db::users, services::User};
+use crate::db;
 
-pub async fn register(db: &SqlitePool, user: &User) -> anyhow::Result<()> {
+pub async fn create_user(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyhow::Result<()> {
     let mut conn = db.acquire().await?;
 
-    users::create(
+    db::users::create(
         &mut *conn,
-        &users::User {
-            id: user.id,
-            username: user.username.clone(),
+        &db::users::User {
+            id: *user_id,
+            username: username.clone(),
         },
     )
     .await?;
 
     Ok(())
 }
+
+// pub async fn create_password(
+//     db: &SqlitePool,
+//     user_id: &Uuid,
+//     password: &String,
+// ) -> anyhow::Result<()> {
+//     let mut conn = db.acquire().await?;
+
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {
@@ -25,26 +36,21 @@ mod tests {
     use crate::{db, services};
 
     #[tokio::test]
-    async fn register_user() {
+    async fn create_user() {
         let pool = init_db().await;
 
-        let user = services::User {
-            id: Uuid::new_v4(),
-            username: "test".to_string(),
-        };
+        let id = Uuid::new_v4();
+        let username = "test".to_string();
 
-        services::users::register(&pool, &user)
+        services::users::create_user(&pool, &id, &username)
             .await
-            .expect("failed to register user");
+            .expect("failed to create user");
 
         assert_eq!(
-            db::users::get_by_id(&pool, &user.id)
+            db::users::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user by id"),
-            db::users::User {
-                id: user.id,
-                username: user.username
-            }
+            db::users::User { id, username }
         )
     }
 }

@@ -3,5 +3,6 @@ CREATE TABLE user_keys (
     user_id UUID NOT NULL,
     encrypted_key BLOB NOT NULL,
     nonce BLOB NOT NULL,
+    salt BLOB NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 )

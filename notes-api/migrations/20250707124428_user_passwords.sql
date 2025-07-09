@@ -1,6 +1,6 @@
 CREATE TABLE user_passwords (
     id UUID PRIMARY KEY NOT NULL,
-    user_id UUID NOT NULL,
+    user_id UUID NOT NULL UNIQUE,
     user_key_id UUID NOT NULL,
     password_hash CHAR(512) NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,

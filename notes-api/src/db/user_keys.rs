@@ -7,6 +7,7 @@ pub struct UserKey {
     pub user_id: Uuid,
     pub encrypted_key: Vec<u8>,
     pub nonce: Vec<u8>,
+    pub salt: Vec<u8>,
 }
 
 pub async fn create<'e, E>(executor: E, user_key: &UserKey) -> anyhow::Result<()>
@@ -15,14 +16,15 @@ where
 {
     sqlx::query(
         r#"
-        INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
-        VALUES (?1, ?2, ?3, ?4)
+        INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+        VALUES (?1, ?2, ?3, ?4, ?5)
         "#,
     )
     .bind(&user_key.id)
     .bind(&user_key.user_id)
     .bind(&user_key.encrypted_key)
     .bind(&user_key.nonce)
+    .bind(&user_key.salt)
     .execute(executor)
     .await?;
 
@@ -35,13 +37,29 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, encrypted_key, nonce
+        SELECT id, user_id, encrypted_key, nonce, salt
         FROM user_keys
         WHERE id = ?1
         "#,
     )
     .bind(id)
     .fetch_one(executor)
+    .await?)
+}
+
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<Vec<UserKey>>
+where
+    E: SqliteExecutor<'e>,
+{
+    Ok(sqlx::query_as(
+        r#"
+        SELECT id, user_id, encrypted_key, nonce, salt
+        FROM user_keys
+        WHERE user_id = ?1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(executor)
     .await?)
 }
 
@@ -80,6 +98,7 @@ mod tests {
             user_id,
             encrypted_key: vec![1, 2, 3, 4],
             nonce: vec![5, 6, 7, 8],
+            salt: vec![4, 3, 2, 1],
         };
 
         user_keys::create(&pool, &user_key)
@@ -118,17 +137,19 @@ mod tests {
         let id = Uuid::new_v4();
         let encrypted_key = vec![1, 2, 3, 4];
         let nonce = vec![5, 6, 7, 8];
+        let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_keys (id, user_id, encrypted_key, nonce)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&encrypted_key)
         .bind(&nonce)
+        .bind(&salt)
         .execute(&pool)
         .await
         .expect("failed to insert user key");
@@ -143,8 +164,66 @@ mod tests {
                 id,
                 user_id,
                 encrypted_key,
-                nonce
+                nonce,
+                salt,
             }
+        )
+    }
+
+    #[tokio::test]
+    async fn get_by_user_id() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let user_id = Uuid::new_v4();
+        let username = "test".to_string();
+
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, username)
+            VALUES (?1, ?2)
+            "#,
+        )
+        .bind(&user_id)
+        .bind(&username)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user");
+
+        let id = Uuid::new_v4();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
+        let salt = vec![4, 3, 2, 1];
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_keys (id, user_id, encrypted_key, nonce, salt)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+        )
+        .bind(&id)
+        .bind(&user_id)
+        .bind(&encrypted_key)
+        .bind(&nonce)
+        .bind(&salt)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user key");
+
+        // Perform test
+
+        assert_eq!(
+            user_keys::get_by_user_id(&pool, &user_id)
+                .await
+                .expect("failed to get user key by user id"),
+            vec![UserKey {
+                id,
+                user_id,
+                encrypted_key,
+                nonce,
+                salt
+            }]
         )
     }
 }

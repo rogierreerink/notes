@@ -2,28 +2,13 @@ use aes_gcm::{Aes256Gcm, Key};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-pub mod notes;
-
-#[derive(Debug)]
-pub struct Note {
-    pub id: Uuid,
-    pub markdown: String,
-}
-
-#[derive(Debug)]
-pub struct NoteKey {
-    pub id: Uuid,
-    pub user_key: UserKey,
-    pub key: Key<Aes256Gcm>,
-}
-
-pub mod user_sessions;
-pub mod users;
-
 #[derive(Debug)]
 pub struct User {
-    pub id: Uuid,
-    pub username: String,
+    pub id: Option<Uuid>,
+    pub username: Option<String>,
+    pub key: Option<UserKey>,
+    pub passwords: Option<Vec<UserPassword>>,
+    pub sessions: Option<Vec<UserSession>>,
 }
 
 #[derive(Debug)]
