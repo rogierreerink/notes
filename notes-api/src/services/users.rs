@@ -18,16 +18,6 @@ pub async fn create(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyho
     Ok(())
 }
 
-// pub async fn create_password(
-//     db: &SqlitePool,
-//     user_id: &Uuid,
-//     password: &String,
-// ) -> anyhow::Result<()> {
-//     let mut conn = db.acquire().await?;
-
-//     Ok(())
-// }
-
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
