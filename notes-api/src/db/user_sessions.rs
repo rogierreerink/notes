@@ -3,13 +3,13 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct UserSession {
+pub struct UserSessionRow {
     pub id: Uuid,
     pub user_id: Uuid,
     pub expiration_time: Option<DateTime<Utc>>,
 }
 
-pub async fn create<'e, E>(executor: E, user_session: &UserSession) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user_session: &UserSessionRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -28,7 +28,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserSession>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserSessionRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -50,7 +50,7 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::user_sessions::{self, UserSession};
+    use crate::db::user_sessions::{self, UserSessionRow};
 
     #[tokio::test]
     async fn create() {
@@ -75,7 +75,7 @@ mod tests {
 
         // Perform test
 
-        let user_session = UserSession {
+        let user_session = UserSessionRow {
             id: Uuid::new_v4(),
             user_id,
             expiration_time: DateTime::from_timestamp(0, 0),
@@ -134,7 +134,7 @@ mod tests {
             user_sessions::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user session by id"),
-            UserSession {
+            UserSessionRow {
                 id,
                 user_id,
                 expiration_time

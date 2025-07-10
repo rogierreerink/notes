@@ -2,12 +2,12 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct User {
+pub struct UserRow {
     pub id: Uuid,
     pub username: String,
 }
 
-pub async fn create<'e, E>(executor: E, user: &User) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user: &UserRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -25,7 +25,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<User>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -46,13 +46,13 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::users::{self, User};
+    use crate::db::users::{self, UserRow};
 
     #[tokio::test]
     async fn create() {
         let pool = init_db().await;
 
-        let user = User {
+        let user = UserRow {
             id: Uuid::new_v4(),
             username: "test".to_string(),
         };
@@ -96,7 +96,7 @@ mod tests {
             users::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user by id"),
-            User { id, username }
+            UserRow { id, username }
         )
     }
 }

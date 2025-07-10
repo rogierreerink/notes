@@ -3,12 +3,12 @@ use uuid::Uuid;
 
 use crate::db;
 
-pub async fn create_user(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyhow::Result<()> {
+pub async fn create(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyhow::Result<()> {
     let mut conn = db.acquire().await?;
 
     db::users::create(
         &mut *conn,
-        &db::users::User {
+        &db::users::UserRow {
             id: *user_id,
             username: username.clone(),
         },
@@ -42,7 +42,7 @@ mod tests {
         let id = Uuid::new_v4();
         let username = "test".to_string();
 
-        services::users::create_user(&pool, &id, &username)
+        services::users::create(&pool, &id, &username)
             .await
             .expect("failed to create user");
 
@@ -50,7 +50,7 @@ mod tests {
             db::users::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user by id"),
-            db::users::User { id, username }
+            db::users::UserRow { id, username }
         )
     }
 }

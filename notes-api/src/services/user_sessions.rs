@@ -49,7 +49,7 @@ impl<'a> UserSession<'a> {
                     .to_vec();
 
                 // Check that the stored hash matches the recreated hash
-                if user_password.password_hash != user_password_hash {
+                if user_password.hash != user_password_hash {
                     todo!("incorrect password")
                 }
 
@@ -105,7 +105,7 @@ impl<'a> UserSession<'a> {
         let session_id = Uuid::new_v4();
         db::user_sessions::create(
             &mut *tx,
-            &db::user_sessions::UserSession {
+            &db::user_sessions::UserSessionRow {
                 id: session_id,
                 user_id: *user_id,
                 expiration_time: *expiration_time,
@@ -171,7 +171,7 @@ mod tests {
 
         db::users::create(
             &pool,
-            &db::users::User {
+            &db::users::UserRow {
                 id: user_id,
                 username,
             },
@@ -197,7 +197,7 @@ mod tests {
 
         db::users::create(
             &pool,
-            &db::users::User {
+            &db::users::UserRow {
                 id: user_id,
                 username,
             },
@@ -229,7 +229,7 @@ mod tests {
 
         db::user_keys::create(
             &pool,
-            &db::user_keys::UserKey {
+            &db::user_keys::UserKeyRow {
                 id: user_key_id,
                 user_id,
                 encrypted_key: user_key_ciphertext,
@@ -256,11 +256,11 @@ mod tests {
 
         db::user_passwords::create(
             &pool,
-            &db::user_passwords::UserPassword {
+            &db::user_passwords::UserPasswordRow {
                 id: user_password_id,
                 user_id,
                 user_key_id,
-                password_hash: user_password_hash,
+                hash: user_password_hash,
                 salt: user_password_salt_buf,
             },
         )

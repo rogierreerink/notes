@@ -2,28 +2,28 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct UserPassword {
+pub struct UserPasswordRow {
     pub id: Uuid,
     pub user_id: Uuid,
     pub user_key_id: Uuid,
-    pub password_hash: Vec<u8>,
+    pub hash: Vec<u8>,
     pub salt: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, user_password: &UserPassword) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user_password: &UserPasswordRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
     sqlx::query(
         r#"
-        INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+        INSERT INTO user_passwords (id, user_id, user_key_id, hash, salt)
         VALUES (?1, ?2, ?3, ?4, ?5)
         "#,
     )
     .bind(&user_password.id)
     .bind(&user_password.user_id)
     .bind(&user_password.user_key_id)
-    .bind(&user_password.password_hash)
+    .bind(&user_password.hash)
     .bind(&user_password.salt)
     .execute(executor)
     .await?;
@@ -31,13 +31,13 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserPassword>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserPasswordRow>
 where
     E: SqliteExecutor<'e>,
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, user_key_id, password_hash, salt
+        SELECT id, user_id, user_key_id, hash, salt
         FROM user_passwords
         WHERE id = ?1
         "#,
@@ -47,13 +47,13 @@ where
     .await?)
 }
 
-pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPassword>
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPasswordRow>
 where
     E: SqliteExecutor<'e>,
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, user_id, user_key_id, password_hash, salt
+        SELECT id, user_id, user_key_id, hash, salt
         FROM user_passwords
         WHERE user_id = ?1
         "#,
@@ -70,7 +70,7 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::user_passwords::{self, UserPassword};
+    use crate::db::user_passwords::{self, UserPasswordRow};
 
     #[tokio::test]
     async fn create() {
@@ -115,11 +115,11 @@ mod tests {
 
         // Perform test
 
-        let user_password = UserPassword {
+        let user_password = UserPasswordRow {
             id: Uuid::new_v4(),
             user_id,
             user_key_id,
-            password_hash: vec![1, 2, 3, 4],
+            hash: vec![1, 2, 3, 4],
             salt: vec![4, 3, 2, 1],
         };
 
@@ -177,19 +177,19 @@ mod tests {
         .expect("failed to insert user key");
 
         let id = Uuid::new_v4();
-        let password_hash = vec![1, 2, 3, 4];
+        let hash = vec![1, 2, 3, 4];
         let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+            INSERT INTO user_passwords (id, user_id, user_key_id, hash, salt)
             VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&user_key_id)
-        .bind(&password_hash)
+        .bind(&hash)
         .bind(&salt)
         .execute(&pool)
         .await
@@ -201,11 +201,11 @@ mod tests {
             user_passwords::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user password by id"),
-            UserPassword {
+            UserPasswordRow {
                 id,
                 user_id,
                 user_key_id,
-                password_hash,
+                hash,
                 salt
             }
         )
@@ -253,19 +253,19 @@ mod tests {
         .expect("failed to insert user key");
 
         let id = Uuid::new_v4();
-        let password_hash = vec![1, 2, 3, 4];
+        let hash = vec![1, 2, 3, 4];
         let salt = vec![4, 3, 2, 1];
 
         sqlx::query(
             r#"
-            INSERT INTO user_passwords (id, user_id, user_key_id, password_hash, salt)
+            INSERT INTO user_passwords (id, user_id, user_key_id, hash, salt)
             VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
         .bind(&user_id)
         .bind(&user_key_id)
-        .bind(&password_hash)
+        .bind(&hash)
         .bind(&salt)
         .execute(&pool)
         .await
@@ -277,11 +277,11 @@ mod tests {
             user_passwords::get_by_user_id(&pool, &user_id)
                 .await
                 .expect("failed to get user password by user id"),
-            UserPassword {
+            UserPasswordRow {
                 id,
                 user_id,
                 user_key_id,
-                password_hash,
+                hash,
                 salt
             }
         )

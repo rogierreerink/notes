@@ -2,7 +2,7 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct NoteKey {
+pub struct NoteKeyRow {
     pub id: Uuid,
     pub note_id: Uuid,
     pub user_id: Uuid,
@@ -10,7 +10,7 @@ pub struct NoteKey {
     pub nonce: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, note_key: &NoteKey) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, note_key: &NoteKeyRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -31,7 +31,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<NoteKey>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<NoteKeyRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -52,7 +52,7 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::note_keys::{self, NoteKey};
+    use crate::db::note_keys::{self, NoteKeyRow};
 
     #[tokio::test]
     async fn create() {
@@ -94,7 +94,7 @@ mod tests {
 
         // Perform test
 
-        let note_key = NoteKey {
+        let note_key = NoteKeyRow {
             id: Uuid::new_v4(),
             note_id,
             user_id,
@@ -177,7 +177,7 @@ mod tests {
             note_keys::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get note key by id"),
-            NoteKey {
+            NoteKeyRow {
                 id,
                 note_id,
                 user_id,

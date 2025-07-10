@@ -2,13 +2,13 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct Note {
+pub struct NoteRow {
     pub id: Uuid,
     pub encrypted_markdown: Vec<u8>,
     pub nonce: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, note: &Note) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, note: &NoteRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -27,7 +27,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<Note>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<NoteRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -48,13 +48,13 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::notes::{self, Note};
+    use crate::db::notes::{self, NoteRow};
 
     #[tokio::test]
     async fn create() {
         let pool = init_db().await;
 
-        let note = Note {
+        let note = NoteRow {
             id: Uuid::new_v4(),
             encrypted_markdown: vec![1, 2, 3, 4],
             nonce: vec![5, 6, 7, 8],
@@ -101,7 +101,7 @@ mod tests {
             notes::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get note by id"),
-            Note {
+            NoteRow {
                 id,
                 encrypted_markdown,
                 nonce

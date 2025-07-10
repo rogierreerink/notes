@@ -2,7 +2,7 @@ use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
 #[derive(FromRow, Debug, PartialEq)]
-pub struct UserKey {
+pub struct UserKeyRow {
     pub id: Uuid,
     pub user_id: Uuid,
     pub encrypted_key: Vec<u8>,
@@ -10,7 +10,7 @@ pub struct UserKey {
     pub salt: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, user_key: &UserKey) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user_key: &UserKeyRow) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -31,7 +31,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserKey>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserKeyRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -47,7 +47,7 @@ where
     .await?)
 }
 
-pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<Vec<UserKey>>
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<Vec<UserKeyRow>>
 where
     E: SqliteExecutor<'e>,
 {
@@ -68,7 +68,7 @@ mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::user_keys::{self, UserKey};
+    use crate::db::user_keys::{self, UserKeyRow};
 
     #[tokio::test]
     async fn create() {
@@ -93,7 +93,7 @@ mod tests {
 
         // Perform test
 
-        let user_key = UserKey {
+        let user_key = UserKeyRow {
             id: Uuid::new_v4(),
             user_id,
             encrypted_key: vec![1, 2, 3, 4],
@@ -160,7 +160,7 @@ mod tests {
             user_keys::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user key by id"),
-            UserKey {
+            UserKeyRow {
                 id,
                 user_id,
                 encrypted_key,
@@ -217,7 +217,7 @@ mod tests {
             user_keys::get_by_user_id(&pool, &user_id)
                 .await
                 .expect("failed to get user key by user id"),
-            vec![UserKey {
+            vec![UserKeyRow {
                 id,
                 user_id,
                 encrypted_key,

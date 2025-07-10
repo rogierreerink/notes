@@ -36,7 +36,7 @@ pub async fn create_note(
         .unwrap();
     db::note_keys::create(
         &mut *tx,
-        &db::note_keys::NoteKey {
+        &db::note_keys::NoteKeyRow {
             id: Uuid::new_v4(),
             note_id: note.id,
             user_id: user.id,
@@ -52,7 +52,7 @@ pub async fn create_note(
         .unwrap();
     db::notes::create(
         &mut *tx,
-        &db::notes::Note {
+        &db::notes::NoteRow {
             id: note.id,
             encrypted_markdown: markdown_ciphertext,
             nonce: markdown_nonce.to_vec(),
