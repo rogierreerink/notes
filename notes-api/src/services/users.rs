@@ -3,14 +3,29 @@ use uuid::Uuid;
 
 use crate::db;
 
-pub async fn create(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyhow::Result<()> {
+pub struct User {
+    id: Uuid,
+    username: String,
+}
+
+impl User {
+    pub fn new(username: String) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            username,
+        }
+    }
+}
+
+pub async fn store(db: &SqlitePool, user: &User) -> anyhow::Result<()> {
     let mut conn = db.acquire().await?;
 
+    // Store the user
     db::users::create(
         &mut *conn,
         &db::users::UserRow {
-            id: *user_id,
-            username: username.clone(),
+            id: user.id,
+            username: user.username.clone(),
         },
     )
     .await?;
@@ -21,26 +36,27 @@ pub async fn create(db: &SqlitePool, user_id: &Uuid, username: &String) -> anyho
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
-    use uuid::Uuid;
 
     use crate::{db, services};
 
     #[tokio::test]
-    async fn create_user() {
+    async fn create() {
         let pool = init_db().await;
 
-        let id = Uuid::new_v4();
-        let username = "test".to_string();
+        let user = services::users::User::new("test".to_string());
 
-        services::users::create(&pool, &id, &username)
+        services::users::store(&pool, &user)
             .await
-            .expect("failed to create user");
+            .expect("failed to store user");
 
         assert_eq!(
-            db::users::get_by_id(&pool, &id)
+            db::users::get_by_id(&pool, &user.id)
                 .await
                 .expect("failed to get user by id"),
-            db::users::UserRow { id, username }
+            db::users::UserRow {
+                id: user.id,
+                username: user.username
+            }
         )
     }
 }
