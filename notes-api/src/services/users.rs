@@ -15,6 +15,10 @@ impl User {
             username,
         }
     }
+
+    pub fn id(&self) -> &Uuid {
+        &self.id
+    }
 }
 
 pub async fn store(db: &SqlitePool, user: &User) -> anyhow::Result<()> {
@@ -40,7 +44,7 @@ mod tests {
     use crate::{db, services};
 
     #[tokio::test]
-    async fn create() {
+    async fn store() {
         let pool = init_db().await;
 
         let user = services::users::User::new("test".to_string());

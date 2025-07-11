@@ -13,7 +13,7 @@ async fn create_user() {
 
     // Create a new user session
     // let user_session =
-    //     services::user_sessions::UserSession::new(Uuid::new_v4(), Some(Duration::days(31)));
+    //     services::user_sessions::UserSession::new(Some(Duration::days(31)));
     // services::user_sessions::store(&mut *tx, &user_session).await;
 
     // Wrap the user id, user key and user session id in a JWT/JWE

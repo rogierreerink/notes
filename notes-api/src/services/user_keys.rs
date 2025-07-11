@@ -22,6 +22,10 @@ impl UserKey {
             key: Aes256Gcm::generate_key(&mut OsRng),
         }
     }
+
+    pub fn id(&self) -> &Uuid {
+        &self.id
+    }
 }
 
 pub async fn store_using_password<'e, E>(
