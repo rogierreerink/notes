@@ -3,7 +3,7 @@ use aes_gcm::{
     aead::{Aead, OsRng},
 };
 use argon2::{Argon2, PasswordHasher};
-use password_hash::{Salt, SaltString};
+use password_hash::SaltString;
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
@@ -61,7 +61,7 @@ where
         .map_err(|e| anyhow::anyhow!("failed to encrypt user key: {}", e))?;
 
     // Convert the password salt to a byte array
-    let mut password_salt_buf = [0u8; Salt::MAX_LENGTH];
+    let mut password_salt_buf = [0u8; 16];
     password_salt
         .decode_b64(&mut password_salt_buf)
         .map_err(|e| anyhow::anyhow!("failed to decode password salt: {}", e))?;

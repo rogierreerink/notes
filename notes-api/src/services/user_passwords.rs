@@ -1,6 +1,6 @@
 use aes_gcm::aead::OsRng;
 use argon2::{Argon2, PasswordHasher};
-use password_hash::{Salt, SaltString};
+use password_hash::SaltString;
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
@@ -43,7 +43,7 @@ where
     E: SqliteExecutor<'e>,
 {
     // Decode the salt
-    let mut salt_buf = vec![0; Salt::MAX_LENGTH];
+    let mut salt_buf = vec![0; 16];
     user_password
         .salt
         .decode_b64(&mut salt_buf)
@@ -104,7 +104,7 @@ mod tests {
         aead::{Aead, OsRng},
     };
     use argon2::{Argon2, PasswordHasher};
-    use password_hash::{Salt, SaltString};
+    use password_hash::SaltString;
     use utilities::db::init_db;
     use uuid::Uuid;
 
@@ -138,7 +138,7 @@ mod tests {
             .expect("failed to get user key password hash")
             .as_bytes()[..32]
             .to_vec();
-        let mut user_key_password_salt_buf = vec![0; Salt::MAX_LENGTH];
+        let mut user_key_password_salt_buf = vec![0; 16];
         user_key_password_salt
             .decode_b64(&mut user_key_password_salt_buf)
             .expect("failed to decode user key password salt");
@@ -173,7 +173,7 @@ mod tests {
             .await
             .expect("failed to store user password");
 
-        let mut user_password_salt_buf = vec![0; Salt::MAX_LENGTH];
+        let mut user_password_salt_buf = vec![0; 16];
         user_password
             .salt
             .decode_b64(&mut user_password_salt_buf)
@@ -221,7 +221,7 @@ mod tests {
             .expect("failed to get user key password hash")
             .as_bytes()[..32]
             .to_vec();
-        let mut user_key_password_salt_buf = vec![0; Salt::MAX_LENGTH];
+        let mut user_key_password_salt_buf = vec![0; 16];
         user_key_password_salt
             .decode_b64(&mut user_key_password_salt_buf)
             .expect("failed to decode user key password salt");
