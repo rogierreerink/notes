@@ -28,6 +28,20 @@ impl UserPassword {
         Ok(Self { id, hash, salt })
     }
 
+    pub fn verify(&self, password: &str) -> anyhow::Result<bool> {
+        // Recreate the user password hash from `user_password` and user password salt
+        let hash = Argon2::default()
+            .hash_password(password.as_bytes(), &self.salt)
+            .map_err(|e| anyhow::anyhow!("failed to hash user password: {}", e))?
+            .hash
+            .ok_or(anyhow::anyhow!("failed to get user password hash"))?
+            .as_bytes()
+            .to_vec();
+
+        // Check that the hashes match
+        Ok(self.hash == hash)
+    }
+
     pub fn id(&self) -> &Uuid {
         &self.id
     }
@@ -78,23 +92,6 @@ where
         salt: SaltString::encode_b64(&user_password_row.salt)
             .map_err(|e| anyhow::anyhow!("failed to encode salt string: {}", e))?,
     })
-}
-
-pub async fn validate(
-    user_password: &UserPassword,
-    provided_password: &str,
-) -> anyhow::Result<bool> {
-    // Recreate the user password hash from `user_password` and user password salt
-    let provided_hash = Argon2::default()
-        .hash_password(provided_password.as_bytes(), &user_password.salt)
-        .map_err(|e| anyhow::anyhow!("failed to hash user password: {}", e))?
-        .hash
-        .ok_or(anyhow::anyhow!("failed to get user password hash"))?
-        .as_bytes()
-        .to_vec();
-
-    // Check that the hashes match
-    Ok(user_password.hash == provided_hash)
 }
 
 #[cfg(test)]
@@ -265,28 +262,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn validate_valid_password() {
+    async fn verify_valid_password() {
         let password_str = "1234";
         let user_password =
             services::user_passwords::UserPassword::new(Uuid::new_v4(), password_str)
                 .expect("failed to create user password");
 
         assert!(
-            services::user_passwords::validate(&user_password, password_str)
-                .await
-                .expect("failed to validate password")
+            user_password
+                .verify(password_str)
+                .expect("failed to verify password")
         );
     }
 
     #[tokio::test]
-    async fn validate_invalid_password() {
+    async fn verify_invalid_password() {
         let user_password = services::user_passwords::UserPassword::new(Uuid::new_v4(), "1234")
             .expect("failed to create user password");
 
         assert!(
-            !services::user_passwords::validate(&user_password, "4321")
-                .await
-                .expect("failed to validate password")
+            !user_password
+                .verify("4321")
+                .expect("failed to verify password")
         );
     }
 }
