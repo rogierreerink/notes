@@ -26,6 +26,10 @@ impl UserKey {
     pub fn id(&self) -> &Uuid {
         &self.id
     }
+
+    pub fn key(&self) -> &Key<Aes256Gcm> {
+        &self.key
+    }
 }
 
 pub async fn store_using_password<'e, E>(

@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
 use crate::db;
@@ -19,14 +19,19 @@ impl User {
     pub fn id(&self) -> &Uuid {
         &self.id
     }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
 }
 
-pub async fn store(db: &SqlitePool, user: &User) -> anyhow::Result<()> {
-    let mut conn = db.acquire().await?;
-
+pub async fn store<'e, E>(executor: E, user: &User) -> anyhow::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
     // Store the user
     db::users::create(
-        &mut *conn,
+        executor,
         &db::users::UserRow {
             id: user.id,
             username: user.username.clone(),
