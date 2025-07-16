@@ -10,7 +10,7 @@ use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{extractors::user_claims::UserClaims, services, state::AppState, tokens};
+use crate::{extractors::auth::Auth, services, state::AppState, tokens};
 
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
@@ -105,28 +105,9 @@ pub struct CreateUserPasswordResponse {
 pub async fn create_user_password(
     State(state): State<Arc<AppState>>,
     Path((user_id, password_id)): Path<(Uuid, Uuid)>,
-    UserClaims(user_claims): UserClaims,
+    Auth(user_claims): Auth,
     Json(payload): Json<CreateUserPasswordRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    // Start database transaction
-    let mut tx = state.db.begin().await.map_err(|e| {
-        println!("failed to start database transaction: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    // Validate user session
-    if !services::user_sessions::get(&mut *tx, user_claims.session_id())
-        .await
-        .map_err(|e| {
-            println!("user does not exist: {:?}", e);
-            StatusCode::UNAUTHORIZED
-        })?
-        .is_valid()
-    {
-        println!("invalid user session");
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
     // Validate user access
     if &user_id != user_claims.user_id() {
         println!("resource forbidden");
@@ -134,12 +115,6 @@ pub async fn create_user_password(
     }
 
     // Store the user password
-
-    // Commit database transaction
-    tx.commit().await.map_err(|e| {
-        println!("failed to commit database transaction: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
 
     Ok((StatusCode::CREATED,))
 }
