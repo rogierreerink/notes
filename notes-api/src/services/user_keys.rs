@@ -32,6 +32,15 @@ impl UserKey {
     }
 }
 
+impl From<&Key<Aes256Gcm>> for UserKey {
+    fn from(key: &Key<Aes256Gcm>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            key: key.clone(),
+        }
+    }
+}
+
 pub async fn store_using_password<'e, E>(
     executor: E,
     user_id: &Uuid,

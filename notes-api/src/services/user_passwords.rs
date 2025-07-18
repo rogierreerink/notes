@@ -14,7 +14,7 @@ pub struct UserPassword {
 }
 
 impl UserPassword {
-    pub fn new(id: Uuid, password: &str) -> anyhow::Result<Self> {
+    pub fn new(password: &str) -> anyhow::Result<Self> {
         // Generate a salt and hash the password
         let salt = SaltString::generate(&mut OsRng);
         let hash = Argon2::default()
@@ -25,7 +25,11 @@ impl UserPassword {
             .as_bytes()
             .to_vec();
 
-        Ok(Self { id, hash, salt })
+        Ok(Self {
+            id: Uuid::new_v4(),
+            hash,
+            salt,
+        })
     }
 
     pub fn verify(&self, password: &str) -> anyhow::Result<bool> {
@@ -162,9 +166,8 @@ mod tests {
 
         // Perform test
 
-        let user_password =
-            services::user_passwords::UserPassword::new(Uuid::new_v4(), &password_str)
-                .expect("failed to create user password");
+        let user_password = services::user_passwords::UserPassword::new(&password_str)
+            .expect("failed to create user password");
 
         services::user_passwords::store(&pool, &user_password, &user_id, &user_key_id)
             .await
@@ -245,9 +248,8 @@ mod tests {
 
         // Perform test
 
-        let user_password =
-            services::user_passwords::UserPassword::new(Uuid::new_v4(), &password_str)
-                .expect("failed to create user password");
+        let user_password = services::user_passwords::UserPassword::new(&password_str)
+            .expect("failed to create user password");
 
         services::user_passwords::store(&pool, &user_password, &user_id, &user_key_id)
             .await
@@ -264,9 +266,8 @@ mod tests {
     #[tokio::test]
     async fn verify_valid_password() {
         let password_str = "1234";
-        let user_password =
-            services::user_passwords::UserPassword::new(Uuid::new_v4(), password_str)
-                .expect("failed to create user password");
+        let user_password = services::user_passwords::UserPassword::new(password_str)
+            .expect("failed to create user password");
 
         assert!(
             user_password
@@ -277,7 +278,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_invalid_password() {
-        let user_password = services::user_passwords::UserPassword::new(Uuid::new_v4(), "1234")
+        let user_password = services::user_passwords::UserPassword::new("1234")
             .expect("failed to create user password");
 
         assert!(
