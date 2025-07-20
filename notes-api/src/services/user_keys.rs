@@ -1,5 +1,5 @@
 use aes_gcm::{
-    AeadCore, Aes256Gcm, Key, KeyInit,
+    AeadCore, Aes256Gcm, Key, KeyInit, Nonce,
     aead::{Aead, OsRng},
 };
 use argon2::{Argon2, PasswordHasher};
@@ -95,6 +95,47 @@ where
     Ok(())
 }
 
+pub async fn get_using_password<'e, E>(
+    executor: E,
+    user_key_id: &Uuid,
+    password: &str,
+) -> anyhow::Result<UserKey>
+where
+    E: SqliteExecutor<'e>,
+{
+    // Get user key from database
+    let user_key_row = db::user_keys::get_by_id(executor, user_key_id).await?;
+
+    // Hash the password for use as the decryption key
+    let password_salt = SaltString::encode_b64(&user_key_row.salt)
+        .map_err(|e| anyhow::anyhow!("failed to encode salt string: {}", e))?;
+    let password_hash = Argon2::default()
+        .hash_password(password.as_bytes(), &password_salt)
+        .map_err(|e| anyhow::anyhow!("failed to hash password: {}", e))?
+        .hash
+        .ok_or(anyhow::anyhow!("empty password hash"))?
+        .as_bytes()[0..32]
+        .to_vec();
+
+    // Decrypt the user key
+    let user_key_key = Key::<Aes256Gcm>::from_slice(&password_hash);
+    let user_key_nonce = Nonce::from_slice(&user_key_row.nonce);
+    let user_key_buf = Aes256Gcm::new(user_key_key)
+        .decrypt(
+            &user_key_nonce,
+            aes_gcm::aead::Payload {
+                msg: &user_key_row.encrypted_key,
+                aad: &[],
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("failed to decrypt user key: {}", e))?;
+
+    Ok(UserKey {
+        id: *user_key_id,
+        key: *Key::<Aes256Gcm>::from_slice(&user_key_buf),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
@@ -128,5 +169,40 @@ mod tests {
         services::user_keys::store_using_password(&pool, &user_id, &user_key, password)
             .await
             .expect("failed to store key using password");
+    }
+
+    #[tokio::test]
+    async fn get_using_password() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let user_id = Uuid::new_v4();
+
+        db::users::create(
+            &pool,
+            &db::users::UserRow {
+                id: user_id,
+                username: "test".to_string(),
+            },
+        )
+        .await
+        .expect("failed to create user");
+
+        let password = "1234";
+        let user_key = services::user_keys::UserKey::new();
+
+        services::user_keys::store_using_password(&pool, &user_id, &user_key, password)
+            .await
+            .expect("failed to store key using password");
+
+        // Perform test
+
+        assert_eq!(
+            user_key,
+            services::user_keys::get_using_password(&pool, &user_key.id, password)
+                .await
+                .expect("failed to get key using password")
+        )
     }
 }

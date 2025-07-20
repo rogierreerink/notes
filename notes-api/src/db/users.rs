@@ -41,6 +41,22 @@ where
     .await?)
 }
 
+pub async fn get_by_username<'e, E>(executor: E, username: &str) -> anyhow::Result<UserRow>
+where
+    E: SqliteExecutor<'e>,
+{
+    Ok(sqlx::query_as(
+        r#"
+        SELECT id, username
+        FROM users
+        WHERE username = ?1
+        "#,
+    )
+    .bind(username)
+    .fetch_one(executor)
+    .await?)
+}
+
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
@@ -96,6 +112,37 @@ mod tests {
             users::get_by_id(&pool, &id)
                 .await
                 .expect("failed to get user by id"),
+            UserRow { id, username }
+        )
+    }
+
+    #[tokio::test]
+    async fn get_by_username() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let id = Uuid::new_v4();
+        let username = "test".to_string();
+
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, username)
+            VALUES (?1, ?2)
+            "#,
+        )
+        .bind(&id)
+        .bind(&username)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user");
+
+        // Perform test
+
+        assert_eq!(
+            users::get_by_username(&pool, &username)
+                .await
+                .expect("failed to get user by username"),
             UserRow { id, username }
         )
     }

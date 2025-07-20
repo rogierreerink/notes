@@ -101,11 +101,11 @@ pub struct CreateOrUpdateUserPasswordResponse {}
 
 pub async fn create_or_update_user_password(
     State(state): State<Arc<AppState>>,
-    Path(user_id): Path<Uuid>,
     Auth(user_claims): Auth,
+    Path(user_id): Path<Uuid>,
     Json(payload): Json<CreateOrUpdateUserPasswordRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    // Validate user access
+    // Authorize user
     if &user_id != user_claims.user_id() {
         println!("user `{}` unauthorized", user_claims.user_id());
         return Err(StatusCode::FORBIDDEN);
@@ -127,9 +127,10 @@ pub async fn create_or_update_user_password(
         })?;
 
     // Store the user password
-    let user_password = services::user_passwords::UserPassword::new(&payload.password)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    services::user_passwords::store(&mut *tx, &user_password, &user_id, user_key.id())
+    let user_password =
+        services::user_passwords::UserPassword::new(user_key.id(), &payload.password)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    services::user_passwords::store(&mut *tx, &user_password, &user_id)
         .await
         .map_err(|e| {
             println!("failed to store user password: {}", e);
@@ -146,25 +147,4 @@ pub async fn create_or_update_user_password(
         StatusCode::CREATED,
         Json(CreateOrUpdateUserPasswordResponse {}),
     ))
-}
-
-#[derive(Deserialize)]
-pub struct CreateUserSessionRequest {
-    password: String,
-}
-
-#[derive(Deserialize)]
-pub struct CreateUserSessionResponse {
-    id: Uuid,
-}
-
-pub async fn create_user_session(
-    State(state): State<Arc<AppState>>,
-    Path(user_id): Path<Uuid>,
-    Json(payload): Json<CreateOrUpdateUserPasswordRequest>,
-) {
-    // Authenticate the user
-    // Create a new user session
-    // Wrap the user id, user key and user session id in a JWT/JWE
-    // Store the user session JWE in set-cookie response header
 }

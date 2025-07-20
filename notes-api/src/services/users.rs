@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::db;
 
+#[derive(Debug, PartialEq)]
 pub struct User {
     id: Uuid,
     username: String,
@@ -42,6 +43,19 @@ where
     Ok(())
 }
 
+pub async fn get_by_username<'e, E>(executor: E, username: &str) -> anyhow::Result<User>
+where
+    E: SqliteExecutor<'e>,
+{
+    // Get the user
+    let user_row = db::users::get_by_username(executor, username).await?;
+
+    Ok(User {
+        id: user_row.id,
+        username: user_row.username,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
@@ -66,6 +80,24 @@ mod tests {
                 id: user.id,
                 username: user.username
             }
+        )
+    }
+
+    #[tokio::test]
+    async fn get_by_username() {
+        let pool = init_db().await;
+
+        let user = services::users::User::new("test".to_string());
+
+        services::users::store(&pool, &user)
+            .await
+            .expect("failed to store user");
+
+        assert_eq!(
+            services::users::get_by_username(&pool, &user.username)
+                .await
+                .expect("failed to get user by username"),
+            user
         )
     }
 }

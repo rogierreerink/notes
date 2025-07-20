@@ -9,12 +9,13 @@ use crate::db;
 #[derive(Debug, PartialEq)]
 pub struct UserPassword {
     id: Uuid,
+    user_key_id: Uuid,
     hash: Vec<u8>,
     salt: SaltString,
 }
 
 impl UserPassword {
-    pub fn new(password: &str) -> anyhow::Result<Self> {
+    pub fn new(user_key_id: &Uuid, password: &str) -> anyhow::Result<Self> {
         // Generate a salt and hash the password
         let salt = SaltString::generate(&mut OsRng);
         let hash = Argon2::default()
@@ -27,6 +28,7 @@ impl UserPassword {
 
         Ok(Self {
             id: Uuid::new_v4(),
+            user_key_id: *user_key_id,
             hash,
             salt,
         })
@@ -49,13 +51,16 @@ impl UserPassword {
     pub fn id(&self) -> &Uuid {
         &self.id
     }
+
+    pub fn user_key_id(&self) -> &Uuid {
+        &self.user_key_id
+    }
 }
 
 pub async fn store<'e, E>(
     executor: E,
     user_password: &UserPassword,
     user_id: &Uuid,
-    user_key_id: &Uuid,
 ) -> anyhow::Result<()>
 where
     E: SqliteExecutor<'e>,
@@ -73,7 +78,7 @@ where
         &db::user_passwords::UserPasswordRow {
             id: user_password.id,
             user_id: *user_id,
-            user_key_id: *user_key_id,
+            user_key_id: user_password.user_key_id,
             hash: user_password.hash.clone(),
             salt: salt_buf,
         },
@@ -83,7 +88,7 @@ where
     Ok(())
 }
 
-pub async fn get<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPassword>
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPassword>
 where
     E: SqliteExecutor<'e>,
 {
@@ -92,6 +97,7 @@ where
 
     Ok(UserPassword {
         id: user_password_row.id,
+        user_key_id: user_password_row.user_key_id,
         hash: user_password_row.hash,
         salt: SaltString::encode_b64(&user_password_row.salt)
             .map_err(|e| anyhow::anyhow!("failed to encode salt string: {}", e))?,
@@ -166,10 +172,11 @@ mod tests {
 
         // Perform test
 
-        let user_password = services::user_passwords::UserPassword::new(&password_str)
-            .expect("failed to create user password");
+        let user_password =
+            services::user_passwords::UserPassword::new(&user_key_id, &password_str)
+                .expect("failed to create user password");
 
-        services::user_passwords::store(&pool, &user_password, &user_id, &user_key_id)
+        services::user_passwords::store(&pool, &user_password, &user_id)
             .await
             .expect("failed to store user password");
 
@@ -194,7 +201,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get() {
+    async fn get_by_user_id() {
         let pool = init_db().await;
 
         // Populate database
@@ -248,15 +255,16 @@ mod tests {
 
         // Perform test
 
-        let user_password = services::user_passwords::UserPassword::new(&password_str)
-            .expect("failed to create user password");
+        let user_password =
+            services::user_passwords::UserPassword::new(&user_key_id, &password_str)
+                .expect("failed to create user password");
 
-        services::user_passwords::store(&pool, &user_password, &user_id, &user_key_id)
+        services::user_passwords::store(&pool, &user_password, &user_id)
             .await
             .expect("failed to store user password");
 
         assert_eq!(
-            services::user_passwords::get(&pool, &user_id)
+            services::user_passwords::get_by_user_id(&pool, &user_id)
                 .await
                 .expect("failed to get user password"),
             user_password
@@ -265,8 +273,9 @@ mod tests {
 
     #[tokio::test]
     async fn verify_valid_password() {
+        let user_key_id = Uuid::new_v4();
         let password_str = "1234";
-        let user_password = services::user_passwords::UserPassword::new(password_str)
+        let user_password = services::user_passwords::UserPassword::new(&user_key_id, password_str)
             .expect("failed to create user password");
 
         assert!(
@@ -278,7 +287,8 @@ mod tests {
 
     #[tokio::test]
     async fn verify_invalid_password() {
-        let user_password = services::user_passwords::UserPassword::new("1234")
+        let user_key_id = Uuid::new_v4();
+        let user_password = services::user_passwords::UserPassword::new(&user_key_id, "1234")
             .expect("failed to create user password");
 
         assert!(
