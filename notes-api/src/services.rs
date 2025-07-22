@@ -1,47 +1,47 @@
-use aes_gcm::{Aes256Gcm, Key};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use crate::db;
 
+pub mod note_keys;
 pub mod notes;
-
-#[derive(Debug)]
-pub struct Note {
-    pub id: Uuid,
-    pub markdown: String,
-}
-
-#[derive(Debug)]
-pub struct NoteKey {
-    pub id: Uuid,
-    pub user_key: UserKey,
-    pub key: Key<Aes256Gcm>,
-}
 
 pub mod user_keys;
 pub mod user_passwords;
 pub mod user_sessions;
 pub mod users;
 
-#[derive(Debug)]
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("resource could not be found")]
+    NotFound,
+
+    #[error("resource encryption failed")]
+    EncryptionFailed,
+
+    #[error("resource decryption failed")]
+    DecryptionFailed,
+
+    #[error("internal error: {0}")]
+    Internal(anyhow::Error),
 }
 
-#[derive(Debug)]
-pub struct UserKey {
-    pub id: Uuid,
-    pub key: Key<Aes256Gcm>,
+impl From<db::Error> for Error {
+    fn from(e: db::Error) -> Self {
+        match e {
+            db::Error::NotFound => Self::NotFound,
+            db::Error::Internal(_) => Self::Internal(e.into()),
+        }
+    }
 }
 
-#[derive(Debug)]
-pub struct UserPassword {
-    pub id: Uuid,
-    pub password: String,
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        Self::Internal(e.into())
+    }
 }
 
-#[derive(Debug)]
-pub struct UserSession {
-    pub id: Uuid,
-    pub expiration_time: DateTime<Utc>,
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Self::Internal(e)
+    }
 }

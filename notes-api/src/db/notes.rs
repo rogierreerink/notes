@@ -1,6 +1,8 @@
 use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
+use crate::db;
+
 #[derive(FromRow, Debug, PartialEq)]
 pub struct NoteRow {
     pub id: Uuid,
@@ -8,7 +10,7 @@ pub struct NoteRow {
     pub nonce: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, note: &NoteRow) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, note: &NoteRow) -> db::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -27,7 +29,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<NoteRow>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> db::Result<NoteRow>
 where
     E: SqliteExecutor<'e>,
 {

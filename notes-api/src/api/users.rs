@@ -107,7 +107,7 @@ pub async fn create_or_update_user_password(
 ) -> Result<impl IntoResponse, StatusCode> {
     // Authorize user
     if &user_id != user_claims.user_id() {
-        println!("user `{}` unauthorized", user_claims.user_id());
+        println!("access denied");
         return Err(StatusCode::FORBIDDEN);
     }
 

@@ -1,6 +1,8 @@
 use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
+use crate::db;
+
 #[derive(FromRow, Debug, PartialEq)]
 pub struct UserPasswordRow {
     pub id: Uuid,
@@ -10,7 +12,7 @@ pub struct UserPasswordRow {
     pub salt: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, user_password: &UserPasswordRow) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user_password: &UserPasswordRow) -> db::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -31,7 +33,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserPasswordRow>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> db::Result<UserPasswordRow>
 where
     E: SqliteExecutor<'e>,
 {
@@ -47,7 +49,7 @@ where
     .await?)
 }
 
-pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> anyhow::Result<UserPasswordRow>
+pub async fn get_by_user_id<'e, E>(executor: E, user_id: &Uuid) -> db::Result<UserPasswordRow>
 where
     E: SqliteExecutor<'e>,
 {

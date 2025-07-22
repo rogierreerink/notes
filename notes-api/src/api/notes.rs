@@ -1,0 +1,132 @@
+use std::sync::Arc;
+
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
+use serde::Deserialize;
+use uuid::Uuid;
+
+use crate::{extractors::auth::Auth, services, state::AppState};
+
+#[derive(Deserialize)]
+pub struct CreateOrUpdateNoteRequest {
+    markdown: String,
+}
+
+pub async fn create_or_update_note(
+    State(state): State<Arc<AppState>>,
+    Auth(user_claims): Auth,
+    Path(note_id): Path<Uuid>,
+    Json(payload): Json<CreateOrUpdateNoteRequest>,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Start database transaction
+    let mut tx = state.db.begin().await.map_err(|e| {
+        println!("failed to start transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Try to get existing note
+    let status = match services::notes::get_by_id(&mut *tx, &note_id).await {
+        // Update existing note
+        Ok(note) => {
+            // Get and decrypt note key
+            let note_key = services::note_keys::get(&mut *tx, &note_id, user_claims.user_id())
+                .await
+                .map_err(|e| match e {
+                    services::Error::NotFound => {
+                        println!("access denied");
+                        StatusCode::FORBIDDEN
+                    }
+                    _ => {
+                        println!("failed to get note key: {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    }
+                })?
+                .decrypt(user_claims.user_key())
+                .map_err(|e| {
+                    println!("failed to decrypt note key: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+
+            // Decrypt note
+            let mut note = note.decrypt(note_key.key()).map_err(|e| {
+                println!("failed to decrypt note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            // Update note
+            note.set_markdown(payload.markdown);
+
+            // Encrypt and store note
+            services::notes::store(
+                &mut *tx,
+                note.encrypt(note_key.key()).map_err(|e| {
+                    println!("failed to encrypt note: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+            )
+            .await
+            .map_err(|e| {
+                println!("failed to store note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            StatusCode::OK
+        }
+
+        // Create new note
+        Err(services::Error::NotFound) => {
+            let note = services::notes::DecryptedNote::new(note_id, payload.markdown);
+            let note_key = services::note_keys::DecryptedNoteKey::new();
+
+            // Encrypt and store note
+            services::notes::store(
+                &mut *tx,
+                note.encrypt(note_key.key()).map_err(|e| {
+                    println!("failed to encrypt note: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+            )
+            .await
+            .map_err(|e| {
+                println!("failed to store note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            // Encrypt and store note key
+            services::note_keys::store(
+                &mut *tx,
+                note_key.encrypt(user_claims.user_key()).map_err(|e| {
+                    println!("failed to encrypt note key: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                note.id(),
+                user_claims.user_id(),
+            )
+            .await
+            .map_err(|e| {
+                println!("failed to store note key: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            StatusCode::CREATED
+        }
+
+        // Internal error
+        Err(e) => {
+            println!("failed to get note: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Commit database transaction
+    tx.commit().await.map_err(|e| {
+        println!("failed to commit transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(status)
+}

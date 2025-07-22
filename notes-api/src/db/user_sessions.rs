@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use sqlx::{SqliteExecutor, prelude::FromRow};
 use uuid::Uuid;
 
+use crate::db;
+
 #[derive(FromRow, Debug, PartialEq)]
 pub struct UserSessionRow {
     pub id: Uuid,
@@ -9,7 +11,7 @@ pub struct UserSessionRow {
     pub expiration_time: Option<DateTime<Utc>>,
 }
 
-pub async fn create<'e, E>(executor: E, user_session: &UserSessionRow) -> anyhow::Result<()>
+pub async fn create<'e, E>(executor: E, user_session: &UserSessionRow) -> db::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -28,7 +30,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserSessionRow>
+pub async fn get_by_id<'e, E>(executor: E, id: &Uuid) -> db::Result<UserSessionRow>
 where
     E: SqliteExecutor<'e>,
 {

@@ -53,7 +53,7 @@ pub async fn create_user_session_token(
                 println!("failed to verify user password: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })? {
-                println!("user `{}` unauthorized", user.username());
+                println!("incorrect password");
                 return Err(StatusCode::UNAUTHORIZED);
             }
 

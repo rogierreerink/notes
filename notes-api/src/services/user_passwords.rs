@@ -4,7 +4,7 @@ use password_hash::SaltString;
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{db, services};
 
 #[derive(Debug, PartialEq)]
 pub struct UserPassword {
@@ -15,7 +15,7 @@ pub struct UserPassword {
 }
 
 impl UserPassword {
-    pub fn new(user_key_id: &Uuid, password: &str) -> anyhow::Result<Self> {
+    pub fn new(user_key_id: &Uuid, password: &str) -> services::Result<Self> {
         // Generate a salt and hash the password
         let salt = SaltString::generate(&mut OsRng);
         let hash = Argon2::default()
@@ -34,7 +34,7 @@ impl UserPassword {
         })
     }
 
-    pub fn verify(&self, password: &str) -> anyhow::Result<bool> {
+    pub fn verify(&self, password: &str) -> services::Result<bool> {
         // Recreate the user password hash from `user_password` and user password salt
         let hash = Argon2::default()
             .hash_password(password.as_bytes(), &self.salt)

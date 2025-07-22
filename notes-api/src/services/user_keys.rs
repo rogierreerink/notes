@@ -7,7 +7,7 @@ use password_hash::SaltString;
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{db, services};
 
 #[derive(Debug, PartialEq)]
 pub struct UserKey {
@@ -46,7 +46,7 @@ pub async fn store_using_password<'e, E>(
     user_id: &Uuid,
     user_key: &UserKey,
     password: &str,
-) -> anyhow::Result<()>
+) -> services::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -71,7 +71,7 @@ where
                 aad: &[],
             },
         )
-        .map_err(|e| anyhow::anyhow!("failed to encrypt user key: {}", e))?;
+        .map_err(|_| services::Error::EncryptionFailed)?;
 
     // Convert the password salt to a byte array
     let mut password_salt_buf = [0u8; 16];
@@ -128,7 +128,7 @@ where
                 aad: &[],
             },
         )
-        .map_err(|e| anyhow::anyhow!("failed to decrypt user key: {}", e))?;
+        .map_err(|_| services::Error::DecryptionFailed)?;
 
     Ok(UserKey {
         id: *user_key_id,

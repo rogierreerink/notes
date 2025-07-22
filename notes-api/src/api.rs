@@ -8,6 +8,7 @@ use axum::{
 use crate::state::AppState;
 
 pub mod auth;
+pub mod notes;
 pub mod users;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
@@ -19,6 +20,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
                 "/users/{user_id}/password",
                 put(users::create_or_update_user_password),
             )
+            .route("/notes/{note_id}", put(notes::create_or_update_note))
             // .layer(
             //     ServiceBuilder::new()
             //         .layer(SetResponseHeaderLayer::if_not_present(

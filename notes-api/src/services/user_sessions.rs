@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{db, services};
 
 #[derive(Debug, PartialEq)]
 pub struct UserSession {
@@ -39,7 +39,7 @@ pub async fn store<'e, E>(
     executor: E,
     user_session: &UserSession,
     user_id: &Uuid,
-) -> anyhow::Result<()>
+) -> services::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -57,7 +57,7 @@ where
     Ok(())
 }
 
-pub async fn get<'e, E>(executor: E, id: &Uuid) -> anyhow::Result<UserSession>
+pub async fn get<'e, E>(executor: E, id: &Uuid) -> services::Result<UserSession>
 where
     E: SqliteExecutor<'e>,
 {

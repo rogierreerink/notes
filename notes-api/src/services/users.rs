@@ -1,7 +1,7 @@
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{db, services};
 
 #[derive(Debug, PartialEq)]
 pub struct User {
@@ -26,7 +26,7 @@ impl User {
     }
 }
 
-pub async fn store<'e, E>(executor: E, user: &User) -> anyhow::Result<()>
+pub async fn store<'e, E>(executor: E, user: &User) -> services::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -43,7 +43,7 @@ where
     Ok(())
 }
 
-pub async fn get_by_username<'e, E>(executor: E, username: &str) -> anyhow::Result<User>
+pub async fn get_by_username<'e, E>(executor: E, username: &str) -> services::Result<User>
 where
     E: SqliteExecutor<'e>,
 {
