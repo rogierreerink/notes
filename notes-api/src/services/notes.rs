@@ -5,7 +5,7 @@ use aes_gcm::{
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
-use crate::{db, services};
+use crate::{db, services, utilities::notes::get_title};
 
 #[derive(Debug, PartialEq)]
 pub struct DecryptedNote {
@@ -20,6 +20,14 @@ impl DecryptedNote {
 
     pub fn id(&self) -> &Uuid {
         &self.id
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        get_title(&self.markdown)
+    }
+
+    pub fn markdown(&self) -> &str {
+        &self.markdown
     }
 
     pub fn set_markdown(&mut self, markdown: String) {
@@ -51,13 +59,7 @@ impl EncryptedNote {
     pub fn decrypt(&self, note_key: &Key<Aes256Gcm>) -> services::Result<DecryptedNote> {
         let markdown_nonce = Nonce::from_slice(&self.nonce);
         let markdown_buf = Aes256Gcm::new(note_key)
-            .decrypt(
-                &markdown_nonce,
-                aes_gcm::aead::Payload {
-                    msg: &self.encrypted_markdown,
-                    aad: &[],
-                },
-            )
+            .decrypt(&markdown_nonce, self.encrypted_markdown.as_ref())
             .map_err(|_| services::Error::DecryptionFailed)?;
 
         Ok(DecryptedNote {
@@ -72,7 +74,7 @@ where
     E: SqliteExecutor<'e>,
 {
     // Store note in database
-    db::notes::create(
+    db::notes::upsert(
         executor,
         &db::notes::NoteRow {
             id: note.id,

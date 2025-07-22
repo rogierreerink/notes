@@ -10,6 +10,7 @@ pub mod extractors;
 pub mod services;
 pub mod state;
 pub mod tokens;
+pub mod utilities;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

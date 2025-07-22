@@ -64,13 +64,7 @@ where
     let user_key_key = Key::<Aes256Gcm>::from_slice(&password_hash);
     let user_key_nonce = Aes256Gcm::generate_nonce(&mut OsRng);
     let user_key_ciphertext = Aes256Gcm::new(user_key_key)
-        .encrypt(
-            &user_key_nonce,
-            aes_gcm::aead::Payload {
-                msg: &user_key.key,
-                aad: &[],
-            },
-        )
+        .encrypt(&user_key_nonce, user_key.key.as_ref())
         .map_err(|_| services::Error::EncryptionFailed)?;
 
     // Convert the password salt to a byte array
@@ -121,13 +115,7 @@ where
     let user_key_key = Key::<Aes256Gcm>::from_slice(&password_hash);
     let user_key_nonce = Nonce::from_slice(&user_key_row.nonce);
     let user_key_buf = Aes256Gcm::new(user_key_key)
-        .decrypt(
-            &user_key_nonce,
-            aes_gcm::aead::Payload {
-                msg: &user_key_row.encrypted_key,
-                aad: &[],
-            },
-        )
+        .decrypt(&user_key_nonce, user_key_row.encrypted_key.as_ref())
         .map_err(|_| services::Error::DecryptionFailed)?;
 
     Ok(UserKey {

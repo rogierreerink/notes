@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{post, put},
+    routing::{get, post, put},
 };
 
 use crate::state::AppState;
@@ -20,6 +20,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
                 "/users/{user_id}/password",
                 put(users::create_or_update_user_password),
             )
+            .route("/notes/{note_id}", get(notes::get_note))
             .route("/notes/{note_id}", put(notes::create_or_update_note))
             // .layer(
             //     ServiceBuilder::new()

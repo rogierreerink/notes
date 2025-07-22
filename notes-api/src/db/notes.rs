@@ -10,7 +10,7 @@ pub struct NoteRow {
     pub nonce: Vec<u8>,
 }
 
-pub async fn create<'e, E>(executor: E, note: &NoteRow) -> db::Result<()>
+pub async fn upsert<'e, E>(executor: E, note: &NoteRow) -> db::Result<()>
 where
     E: SqliteExecutor<'e>,
 {
@@ -18,6 +18,9 @@ where
         r#"
         INSERT INTO notes (id, encrypted_markdown, nonce)
         VALUES (?1, ?2, ?3)
+        ON CONFLICT (id) DO UPDATE SET
+            encrypted_markdown = ?2,
+            nonce = ?3
         "#,
     )
     .bind(&note.id)
@@ -53,16 +56,16 @@ mod tests {
     use crate::db::notes::{self, NoteRow};
 
     #[tokio::test]
-    async fn create() {
+    async fn upsert() {
         let pool = init_db().await;
 
-        let note = NoteRow {
+        let mut note = NoteRow {
             id: Uuid::new_v4(),
             encrypted_markdown: vec![1, 2, 3, 4],
             nonce: vec![5, 6, 7, 8],
         };
 
-        notes::create(&pool, &note)
+        notes::upsert(&pool, &note)
             .await
             .expect("failed to create note");
 
@@ -71,7 +74,21 @@ mod tests {
                 .await
                 .expect("failed to get note"),
             note
-        )
+        );
+
+        note.encrypted_markdown = vec![5, 6, 7, 8];
+        note.nonce = vec![1, 2, 3, 4];
+
+        notes::upsert(&pool, &note)
+            .await
+            .expect("failed to update note");
+
+        assert_eq!(
+            notes::get_by_id(&pool, &note.id)
+                .await
+                .expect("failed to get note"),
+            note
+        );
     }
 
     #[tokio::test]

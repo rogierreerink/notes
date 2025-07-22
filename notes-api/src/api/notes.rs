@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{extractors::auth::Auth, services, state::AppState};
@@ -28,7 +28,7 @@ pub async fn create_or_update_note(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Try to get existing note
+    // Update or create note
     let status = match services::notes::get_by_id(&mut *tx, &note_id).await {
         // Update existing note
         Ok(note) => {
@@ -51,7 +51,7 @@ pub async fn create_or_update_note(
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
-            // Decrypt note
+            // Decrypt note for good measure - make sure that it's the right key
             let mut note = note.decrypt(note_key.key()).map_err(|e| {
                 println!("failed to decrypt note: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -129,4 +129,75 @@ pub async fn create_or_update_note(
     })?;
 
     Ok(status)
+}
+
+#[derive(Serialize)]
+pub struct GetNoteResponse {
+    id: Uuid,
+    title: Option<String>,
+    markdown: String,
+}
+
+pub async fn get_note(
+    State(state): State<Arc<AppState>>,
+    Auth(user_claims): Auth,
+    Path(note_id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Start database transaction
+    let mut tx = state.db.begin().await.map_err(|e| {
+        println!("failed to start transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Get and decrypt note key
+    let note_key = services::note_keys::get(&mut *tx, &note_id, user_claims.user_id())
+        .await
+        .map_err(|e| match e {
+            services::Error::NotFound => {
+                println!("access denied");
+                StatusCode::FORBIDDEN
+            }
+            _ => {
+                println!("failed to get note key: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
+
+    // Get and decrypt note
+    let note = services::notes::get_by_id(&mut *tx, &note_id)
+        .await
+        .map_err(|e| match e {
+            services::Error::NotFound => {
+                println!("resource could not be found");
+                StatusCode::NOT_FOUND
+            }
+            _ => {
+                println!("failed to get note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
+
+    // Commit database transaction
+    tx.commit().await.map_err(|e| {
+        println!("failed to commit transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Decrypt note key
+    let note_key = note_key.decrypt(user_claims.user_key()).map_err(|e| {
+        println!("failed to decrypt note key: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Decrypt note
+    let note = note.decrypt(note_key.key()).map_err(|e| {
+        println!("failed to decrypt note: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(GetNoteResponse {
+        id: note_id,
+        title: note.title().map(str::to_string),
+        markdown: note.markdown().to_string(),
+    }))
 }

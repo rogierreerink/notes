@@ -138,7 +138,7 @@ mod tests {
 
         let note_id = Uuid::new_v4();
 
-        db::notes::create(
+        db::notes::upsert(
             &pool,
             &db::notes::NoteRow {
                 id: note_id,
