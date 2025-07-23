@@ -132,6 +132,73 @@ pub async fn create_or_update_note(
 }
 
 #[derive(Serialize)]
+pub struct GetNotesResponse {
+    data: Vec<GetNotesResource>,
+}
+
+#[derive(Serialize)]
+pub struct GetNotesResource {
+    id: Uuid,
+    title: Option<String>,
+    // markdown: String,
+}
+
+pub async fn get_notes(
+    State(state): State<Arc<AppState>>,
+    Auth(user_claims): Auth,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Start database transaction
+    let mut tx = state.db.begin().await.map_err(|e| {
+        println!("failed to start transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Get note keys
+    let mut notes = vec![];
+    for link in services::note_keys::search(&mut *tx, user_claims.user_id())
+        .await
+        .map_err(|e| {
+            println!("failed to search user keys: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+    {
+        // Get note
+        let note = services::notes::get_by_id(&mut *tx, &link.note_id)
+            .await
+            .map_err(|e| {
+                println!("failed to get note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+        // Decrypt note key (should not fail)
+        let note_key = link.note_key.decrypt(user_claims.user_key()).map_err(|e| {
+            println!("failed to decrypt note key: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        // Decrypt note (should not fail)
+        let note = note.decrypt(note_key.key()).map_err(|e| {
+            println!("failed to decrypt note: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        notes.push(GetNotesResource {
+            id: link.note_id,
+            title: note.title().map(str::to_string),
+            // markdown: note.markdown().to_string(),
+        });
+    }
+
+    // Commit database transaction
+    tx.commit().await.map_err(|e| {
+        println!("failed to commit transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(GetNotesResponse { data: notes }))
+}
+
+#[derive(Serialize)]
 pub struct GetNoteResponse {
     id: Uuid,
     title: Option<String>,

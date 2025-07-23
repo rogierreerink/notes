@@ -85,6 +85,31 @@ where
     Ok(())
 }
 
+pub struct NoteKeyLink {
+    pub note_id: Uuid,
+    pub note_key: EncryptedNoteKey,
+}
+
+pub async fn search<'e, E>(executor: E, user_id: &Uuid) -> services::Result<Vec<NoteKeyLink>>
+where
+    E: SqliteExecutor<'e>,
+{
+    // Get note keys from database
+    let note_key_rows = db::note_keys::get_by_user_id(executor, user_id).await?;
+
+    Ok(note_key_rows
+        .iter()
+        .map(|row| NoteKeyLink {
+            note_id: row.note_id,
+            note_key: EncryptedNoteKey {
+                id: row.id,
+                encrypted_key: row.encrypted_key.clone(),
+                nonce: row.nonce.clone(),
+            },
+        })
+        .collect())
+}
+
 pub async fn get<'e, E>(
     executor: E,
     note_id: &Uuid,
