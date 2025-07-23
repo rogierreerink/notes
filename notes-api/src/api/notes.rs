@@ -32,7 +32,7 @@ pub async fn create_or_update_note(
     let status = match services::notes::get_by_id(&mut *tx, &note_id).await {
         // Update existing note
         Ok(note) => {
-            // Get and decrypt note key
+            // Get and decrypt note key (decryption should not fail)
             let note_key = services::note_keys::get(&mut *tx, &note_id, user_claims.user_id())
                 .await
                 .map_err(|e| match e {
@@ -51,7 +51,7 @@ pub async fn create_or_update_note(
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
-            // Decrypt note for good measure - make sure that it's the right key
+            // Decrypt note (should not fail)
             let mut note = note.decrypt(note_key.key()).map_err(|e| {
                 println!("failed to decrypt note: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -149,7 +149,21 @@ pub async fn get_note(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Get and decrypt note key
+    // Get note
+    let note = services::notes::get_by_id(&mut *tx, &note_id)
+        .await
+        .map_err(|e| match e {
+            services::Error::NotFound => {
+                println!("resource cannot be found");
+                StatusCode::NOT_FOUND
+            }
+            _ => {
+                println!("failed to get note: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
+
+    // Get note key
     let note_key = services::note_keys::get(&mut *tx, &note_id, user_claims.user_id())
         .await
         .map_err(|e| match e {
@@ -163,7 +177,43 @@ pub async fn get_note(
             }
         })?;
 
-    // Get and decrypt note
+    // Commit database transaction
+    tx.commit().await.map_err(|e| {
+        println!("failed to commit transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Decrypt note key (should not fail)
+    let note_key = note_key.decrypt(user_claims.user_key()).map_err(|e| {
+        println!("failed to decrypt note key: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Decrypt note (should not fail)
+    let note = note.decrypt(note_key.key()).map_err(|e| {
+        println!("failed to decrypt note: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(GetNoteResponse {
+        id: note_id,
+        title: note.title().map(str::to_string),
+        markdown: note.markdown().to_string(),
+    }))
+}
+
+pub async fn delete_note(
+    State(state): State<Arc<AppState>>,
+    Auth(user_claims): Auth,
+    Path(note_id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Start database transaction
+    let mut tx = state.db.begin().await.map_err(|e| {
+        println!("failed to start transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Get note
     let note = services::notes::get_by_id(&mut *tx, &note_id)
         .await
         .map_err(|e| match e {
@@ -177,27 +227,53 @@ pub async fn get_note(
             }
         })?;
 
+    // Get note key
+    let note_key = services::note_keys::get(&mut *tx, &note_id, user_claims.user_id())
+        .await
+        .map_err(|e| match e {
+            services::Error::NotFound => {
+                println!("access denied");
+                StatusCode::FORBIDDEN
+            }
+            _ => {
+                println!("failed to get note key: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
+
+    // Decrypt note key (should not fail)
+    let note_key = note_key.decrypt(user_claims.user_key()).map_err(|e| {
+        println!("failed to decrypt note key: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Decrypt note (should not fail)
+    let note = note.decrypt(note_key.key()).map_err(|e| {
+        println!("failed to decrypt note: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Delete note key
+    services::note_keys::delete(&mut *tx, note.id(), user_claims.user_id())
+        .await
+        .map_err(|e| {
+            println!("failed to delete note key: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Delete note
+    services::notes::delete(&mut *tx, note.id())
+        .await
+        .map_err(|e| {
+            println!("failed to delete note: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
     // Commit database transaction
     tx.commit().await.map_err(|e| {
         println!("failed to commit transaction: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Decrypt note key
-    let note_key = note_key.decrypt(user_claims.user_key()).map_err(|e| {
-        println!("failed to decrypt note key: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    // Decrypt note
-    let note = note.decrypt(note_key.key()).map_err(|e| {
-        println!("failed to decrypt note: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    Ok(Json(GetNoteResponse {
-        id: note_id,
-        title: note.title().map(str::to_string),
-        markdown: note.markdown().to_string(),
-    }))
+    Ok(StatusCode::OK)
 }

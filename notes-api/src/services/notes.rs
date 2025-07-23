@@ -101,6 +101,16 @@ where
     })
 }
 
+pub async fn delete<'e, E>(executor: E, note_id: &Uuid) -> services::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
+    // Delete note from database
+    db::notes::delete_by_id(executor, note_id).await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use aes_gcm::{Aes256Gcm, KeyInit, aead::OsRng};

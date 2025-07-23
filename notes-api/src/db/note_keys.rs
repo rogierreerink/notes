@@ -70,12 +70,41 @@ where
     .await?)
 }
 
+pub async fn delete_by_note_id_and_user_id<'e, E>(
+    executor: E,
+    note_id: &Uuid,
+    user_id: &Uuid,
+) -> db::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
+    match sqlx::query(
+        r#"
+        DELETE FROM note_keys
+        WHERE note_id = ?1 AND user_id = ?2
+        "#,
+    )
+    .bind(note_id)
+    .bind(user_id)
+    .execute(executor)
+    .await?
+    .rows_affected()
+    {
+        x if x < 1 => Err(db::Error::NotFound),
+        x if x > 1 => Err(db::Error::TooMany),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::note_keys::{self, NoteKeyRow};
+    use crate::db::{
+        self,
+        note_keys::{self, NoteKeyRow},
+    };
 
     #[tokio::test]
     async fn create() {
@@ -281,5 +310,75 @@ mod tests {
                 nonce
             }
         )
+    }
+
+    #[tokio::test]
+    async fn delete_by_note_id_and_user_id() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let note_id = Uuid::new_v4();
+        let encryted_markdown = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
+
+        sqlx::query(
+            r#"
+            INSERT INTO notes (id, encrypted_markdown, nonce)
+            VALUES (?1, ?2, ?3)
+            "#,
+        )
+        .bind(&note_id)
+        .bind(&encryted_markdown)
+        .bind(&nonce)
+        .execute(&pool)
+        .await
+        .expect("failed to insert note");
+
+        let user_id = Uuid::new_v4();
+        let username = "test".to_string();
+
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, username)
+            VALUES (?1, ?2)
+            "#,
+        )
+        .bind(&user_id)
+        .bind(&username)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user");
+
+        let id = Uuid::new_v4();
+        let encrypted_key = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
+
+        sqlx::query(
+            r#"
+            INSERT INTO note_keys (id, note_id, user_id, encrypted_key, nonce)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+        )
+        .bind(&id)
+        .bind(&note_id)
+        .bind(&user_id)
+        .bind(&encrypted_key)
+        .bind(&nonce)
+        .execute(&pool)
+        .await
+        .expect("failed to insert note_key");
+
+        // Perform test
+
+        note_keys::delete_by_note_id_and_user_id(&pool, &note_id, &user_id)
+            .await
+            .expect("failed to delete note key by note id and user id");
+
+        assert!(
+            note_keys::delete_by_note_id_and_user_id(&pool, &note_id, &user_id)
+                .await
+                .is_err_and(|e| matches!(e, db::Error::NotFound))
+        );
     }
 }

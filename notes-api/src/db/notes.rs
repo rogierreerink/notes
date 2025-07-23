@@ -48,12 +48,36 @@ where
     .await?)
 }
 
+pub async fn delete_by_id<'e, E>(executor: E, id: &Uuid) -> db::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
+    match sqlx::query(
+        r#"
+        DELETE FROM notes
+        WHERE id = ?1
+        "#,
+    )
+    .bind(id)
+    .execute(executor)
+    .await?
+    .rows_affected()
+    {
+        x if x < 1 => Err(db::Error::NotFound),
+        x if x > 1 => Err(db::Error::TooMany),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::notes::{self, NoteRow};
+    use crate::db::{
+        self,
+        notes::{self, NoteRow},
+    };
 
     #[tokio::test]
     async fn upsert() {
@@ -125,6 +149,42 @@ mod tests {
                 encrypted_markdown,
                 nonce
             }
+        )
+    }
+
+    #[tokio::test]
+    async fn delete_by_id() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let id = Uuid::new_v4();
+        let encrypted_markdown = vec![1, 2, 3, 4];
+        let nonce = vec![5, 6, 7, 8];
+
+        sqlx::query(
+            r#"
+            INSERT INTO notes (id, encrypted_markdown, nonce)
+            VALUES (?1, ?2, ?3)
+            "#,
+        )
+        .bind(&id)
+        .bind(&encrypted_markdown)
+        .bind(&nonce)
+        .execute(&pool)
+        .await
+        .expect("failed to insert note");
+
+        // Perform test
+
+        notes::delete_by_id(&pool, &id)
+            .await
+            .expect("failed to delete note by id");
+
+        assert!(
+            notes::get_by_id(&pool, &id)
+                .await
+                .is_err_and(|e| matches!(e, db::Error::NotFound))
         )
     }
 }

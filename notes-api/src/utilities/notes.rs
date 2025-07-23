@@ -1,4 +1,5 @@
 pub fn get_title(markdown: &str) -> Option<&str> {
+    let markdown = markdown.trim();
     let new_line_idx = markdown.find("\n").unwrap_or(markdown.len());
     let trimmed = markdown[..new_line_idx].trim();
 
@@ -44,5 +45,9 @@ mod tests {
         assert_eq!(get_title("#hello \r\n hey"), Some("hello"));
         assert_eq!(get_title(" # hello \r\n hey"), Some("hello"));
         assert_eq!(get_title(" #hello \r\n hey"), Some("hello"));
+        assert_eq!(get_title("\r\n# hello \r\n hey"), Some("hello"));
+        assert_eq!(get_title("\r\n#hello \r\n hey"), Some("hello"));
+        assert_eq!(get_title("\r\n # hello \r\n hey"), Some("hello"));
+        assert_eq!(get_title("\r\n #hello \r\n hey"), Some("hello"));
     }
 }

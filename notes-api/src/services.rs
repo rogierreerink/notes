@@ -15,6 +15,9 @@ pub enum Error {
     #[error("resource could not be found")]
     NotFound,
 
+    #[error("too many resource where found")]
+    TooMany,
+
     #[error("resource encryption failed")]
     EncryptionFailed,
 
@@ -29,6 +32,7 @@ impl From<db::Error> for Error {
     fn from(e: db::Error) -> Self {
         match e {
             db::Error::NotFound => Self::NotFound,
+            db::Error::TooMany => Self::TooMany,
             db::Error::Internal(_) => Self::Internal(e.into()),
         }
     }

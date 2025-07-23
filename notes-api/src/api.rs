@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 
 use crate::state::AppState;
@@ -22,6 +22,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             )
             .route("/notes/{note_id}", get(notes::get_note))
             .route("/notes/{note_id}", put(notes::create_or_update_note))
+            .route("/notes/{note_id}", delete(notes::delete_note))
             // .layer(
             //     ServiceBuilder::new()
             //         .layer(SetResponseHeaderLayer::if_not_present(

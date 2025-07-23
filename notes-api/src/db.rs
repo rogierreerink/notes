@@ -13,6 +13,9 @@ pub enum Error {
     #[error("item could not be found")]
     NotFound,
 
+    #[error("too many items matched the query")]
+    TooMany,
+
     #[error("internal error: {0}")]
     Internal(anyhow::Error),
 }
