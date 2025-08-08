@@ -1158,7 +1158,6 @@ dependencies = [
  "axum-extra",
  "base64",
  "chrono",
- "cookie",
  "josekit",
  "password-hash",
  "pulldown-cmark",

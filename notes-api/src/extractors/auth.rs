@@ -4,7 +4,11 @@ use axum::{
     extract::{FromRef, FromRequestParts},
     http::{StatusCode, request::Parts},
 };
-use axum_extra::{TypedHeader, headers::Cookie, typed_header::TypedHeaderRejectionReason};
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+    typed_header::TypedHeaderRejectionReason,
+};
 use josekit::jwk::Jwk;
 use sqlx::SqlitePool;
 
@@ -27,22 +31,17 @@ where
         // Extract auth state
         let auth_state = AuthState::from_ref(state);
 
-        // Extract cookies for HTTP headers
-        let cookies = TypedHeader::<Cookie>::from_request_parts(parts, state)
+        // Extract authorization bearer
+        let token = TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state)
             .await
             .map_err(|e| match e.reason() {
                 TypedHeaderRejectionReason::Missing => StatusCode::BAD_REQUEST,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             })?;
 
-        // Extract token cookie from cookies
-        let token_cookie = cookies
-            .get("token")
-            .ok_or_else(|| StatusCode::BAD_REQUEST)?;
-
         // Get user claims from token cookie
         let user_claims =
-            tokens::decrypt(token_cookie.as_bytes(), &auth_state.jwk).map_err(|e| match e {
+            tokens::decrypt(token.token().as_bytes(), &auth_state.jwk).map_err(|e| match e {
                 TokenDecryptionError::InvalidKey => StatusCode::UNAUTHORIZED,
                 TokenDecryptionError::InvalidClaim(_) => StatusCode::BAD_REQUEST,
                 TokenDecryptionError::Internal => StatusCode::INTERNAL_SERVER_ERROR,

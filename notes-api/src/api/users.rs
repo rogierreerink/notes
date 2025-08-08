@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode, header},
+    http::StatusCode,
     response::IntoResponse,
 };
 use chrono::Duration;
@@ -19,8 +19,19 @@ pub struct CreateUserRequest {
 
 #[derive(Serialize)]
 pub struct CreateUserResponse {
+    user: UserResponse,
+    session: UserSessionResponse,
+}
+
+#[derive(Serialize)]
+pub struct UserResponse {
     id: Uuid,
     username: String,
+}
+
+#[derive(Serialize)]
+pub struct UserSessionResponse {
+    token: String,
 }
 
 pub async fn create_user(
@@ -65,28 +76,14 @@ pub async fn create_user(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Create JWT cookie
-    let mut jwt_cookie = cookie::Cookie::new("token", &jwt);
-    jwt_cookie.set_http_only(true);
-    jwt_cookie.set_secure(true);
-    jwt_cookie.set_same_site(cookie::SameSite::Strict);
-
-    // Create response headers
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        header::SET_COOKIE,
-        jwt_cookie.to_string().parse().map_err(|e| {
-            println!("failed to parse jwt into header value: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?,
-    );
-
     Ok((
         StatusCode::CREATED,
-        headers,
         Json(CreateUserResponse {
-            id: *user.id(),
-            username: user.username().to_string(),
+            user: UserResponse {
+                id: *user.id(),
+                username: user.username().to_string(),
+            },
+            session: UserSessionResponse { token: jwt },
         }),
     ))
 }
