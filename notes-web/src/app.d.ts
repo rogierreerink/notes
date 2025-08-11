@@ -3,7 +3,11 @@
 declare global {
 	namespace App {
 		interface Locals {
-			sessionToken?: string;
+			session: {
+				token: string;
+				id: string;
+				userId: string;
+			}?;
 		}
 
 		// interface Error {}

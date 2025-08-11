@@ -43,11 +43,11 @@ pub fn encrypt(claims: &UserClaims, key: &Jwk) -> anyhow::Result<String> {
     jwe_header.set_token_type("JWT");
     jwe_header.set_algorithm("A256GCMKW");
     jwe_header.set_content_encryption("A256GCM");
+    jwe_header.set_claim("session_id", Some(claims.session_id.to_string().into()))?;
+    jwe_header.set_claim("user_id", Some(claims.user_id.to_string().into()))?;
 
     // Create the JWT payload
     let mut jwt_payload = JwtPayload::new();
-    jwt_payload.set_claim("session_id", Some(claims.session_id.to_string().into()))?;
-    jwt_payload.set_claim("user_id", Some(claims.user_id.to_string().into()))?;
     jwt_payload.set_claim(
         "user_key",
         Some(BASE64_STANDARD.encode(&claims.user_key).into()),
@@ -67,23 +67,24 @@ pub fn decrypt(input: &[u8], key: &Jwk) -> Result<UserClaims, TokenDecryptionErr
     let decrypter = A256gcmkw
         .decrypter_from_jwk(key)
         .map_err(|_| TokenDecryptionError::Internal)?;
-    let (payload, _) = jwt::decode_with_decrypter(input, &decrypter).map_err(|e| match e {
+    let (payload, header) = jwt::decode_with_decrypter(input, &decrypter).map_err(|e| match e {
         JoseError::InvalidJweFormat(_) => TokenDecryptionError::InvalidKey,
         _ => TokenDecryptionError::Internal,
     })?;
 
     // Create user claims
     Ok(UserClaims {
-        session_id: Uuid::parse_str(get_required_claim(&payload, "session_id")?).map_err(|e| {
-            TokenDecryptionError::InvalidClaim(anyhow::anyhow!("session_id: {}", e))
-        })?,
+        session_id: Uuid::parse_str(get_required_claim(header.claims_set(), "session_id")?)
+            .map_err(|e| {
+                TokenDecryptionError::InvalidClaim(anyhow::anyhow!("session_id: {}", e))
+            })?,
 
-        user_id: Uuid::parse_str(get_required_claim(&payload, "user_id")?)
+        user_id: Uuid::parse_str(get_required_claim(header.claims_set(), "user_id")?)
             .map_err(|e| TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_id: {}", e)))?,
 
         user_key: *Key::<Aes256Gcm>::from_slice(
             &BASE64_STANDARD
-                .decode(get_required_claim(&payload, "user_key")?)
+                .decode(get_required_claim(payload.claims_set(), "user_key")?)
                 .map_err(|e| {
                     TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_key: {}", e))
                 })?,
@@ -92,11 +93,11 @@ pub fn decrypt(input: &[u8], key: &Jwk) -> Result<UserClaims, TokenDecryptionErr
 }
 
 fn get_required_claim<'a>(
-    payload: &'a JwtPayload,
+    claims: &'a josekit::Map<String, josekit::Value>,
     name: &str,
 ) -> Result<&'a str, TokenDecryptionError> {
-    payload
-        .claim(name)
+    claims
+        .get(name)
         .and_then(|claim| claim.as_str())
         .ok_or(TokenDecryptionError::InvalidClaim(anyhow::anyhow!(
             format!("`{}` claim must be set", name)

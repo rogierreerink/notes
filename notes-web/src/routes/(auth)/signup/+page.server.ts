@@ -34,13 +34,6 @@ export const actions = {
 			});
 		}
 
-		cookies.set('userId', user_result.data.user.id, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'strict',
-			secure: !dev
-		});
-
 		cookies.set('sessionToken', user_result.data.session.token, {
 			path: '/',
 			httpOnly: true,

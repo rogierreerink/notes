@@ -8,13 +8,12 @@ export type Error = {
 
 export const actions = {
 	default: async ({
-		cookies,
 		request,
+		locals,
 		fetch
 	}): Promise<ActionFailure<Error>> => {
-		const userId = cookies.get('userId');
-		if (!userId) {
-			return redirect(303, '/signin');
+		if (!locals.session) {
+			return redirect(303, '/signup');
 		}
 
 		const payload = await request.formData();
@@ -26,9 +25,11 @@ export const actions = {
 			});
 		}
 
-		const password_result = await setUserPassword(fetch, userId, {
-			password
-		});
+		const password_result = await setUserPassword(
+			fetch,
+			locals.session.userId,
+			{ password }
+		);
 
 		if (!password_result.ok) {
 			return fail(500, {
