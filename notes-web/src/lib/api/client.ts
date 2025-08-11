@@ -16,10 +16,7 @@ export async function api<T>(
 	options: RequestInit = {}
 ): Promise<Result<T>> {
 	try {
-		const res = await fetcher(`${BASE_URL}${path}`, {
-			credentials: 'same-origin',
-			...options
-		});
+		const res = await fetcher(`${BASE_URL}${path}`, options);
 
 		if (!res.ok) {
 			throw new Error(`api error: ${res.status}`);

@@ -1,22 +1,15 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import showdown from 'showdown';
+	import type { LayoutProps } from './$types';
 
-	let markdown_converter = new showdown.Converter();
-	let markdown_html = markdown_converter.makeHtml(page.data.note.markdown);
+	let { children, data }: LayoutProps = $props();
 </script>
 
 <div class="columns is-gapless" style="height: 100%;">
-	<!-- Sidebar -->
+	<!-- Sidebar class:is-active={note.id === page.params.id} -->
 	<aside class="column is-3" style="border-right: 1px solid hsl(0, 0%, 20%);">
 		<nav class="panel" style="box-shadow: none;">
-			{#each page.data.notes as note (note.id)}
-				<a
-					class="panel-block"
-					class:is-active={note.id === page.params.id}
-					href={`/${note.id}`}
-					data-sveltekit-reload
-				>
+			{#each data.notes as note (note.id)}
+				<a class="panel-block" href={`/${note.id}`} data-sveltekit-reload>
 					<span class="panel-icon">
 						<i class="fas fa-sticky-note" aria-hidden="true"></i>
 					</span>
@@ -33,7 +26,7 @@
 		<div class="section mx-6">
 			<div class="container">
 				<div class="content">
-					{@html markdown_html}
+					{@render children()}
 				</div>
 			</div>
 		</div>
@@ -41,6 +34,10 @@
 </div>
 
 <style>
+	:global(body) {
+		height: 100vh;
+	}
+
 	:global(h1) {
 		font-size: xx-large;
 	}
