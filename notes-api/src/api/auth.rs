@@ -15,7 +15,17 @@ pub enum CreateUserSessionRequest {
 
 #[derive(Serialize)]
 pub struct CreateUserSessionResponse {
+    user: UserResponse,
+    session: UserSessionResponse,
+}
+
+#[derive(Serialize)]
+pub struct UserResponse {
     id: Uuid,
+}
+
+#[derive(Serialize)]
+pub struct UserSessionResponse {
     token: String,
 }
 
@@ -93,8 +103,8 @@ pub async fn create_user_session_token(
     Ok((
         StatusCode::OK,
         Json(CreateUserSessionResponse {
-            id: *user.id(),
-            token: jwt,
+            user: UserResponse { id: *user.id() },
+            session: UserSessionResponse { token: jwt },
         }),
     ))
 }

@@ -1,3 +1,9 @@
+<script lang="ts">
+	import type { PageProps } from './$types';
+
+	let { form }: PageProps = $props();
+</script>
+
 <section class="hero is-fullheight">
 	<div class="hero-body">
 		<div class="container">
@@ -15,6 +21,7 @@
 									name="username"
 									type="text"
 									placeholder="e.g. jdoe"
+									value={form?.username || ''}
 									required
 								/>
 								<span class="icon is-small is-left">
@@ -47,6 +54,16 @@
 								</button>
 							</div>
 						</div>
+
+						{#if form?.message}
+							<div class="field">
+								<div class="message is-danger">
+									<div class="message-body">
+										{form.message}
+									</div>
+								</div>
+							</div>
+						{/if}
 
 						<div class="field has-text-right">
 							or <a href="/signup">sign up</a>

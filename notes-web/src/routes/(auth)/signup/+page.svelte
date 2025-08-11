@@ -48,6 +48,10 @@
 								</button>
 							</div>
 						</div>
+
+						<div class="field has-text-right">
+							or <a href="/signin">sign in</a>
+						</div>
 					</form>
 				</div>
 			</div>
