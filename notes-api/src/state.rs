@@ -1,5 +1,8 @@
 use josekit::jwk::Jwk;
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::{
+    SqlitePool,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+};
 
 pub struct AppState {
     pub db: SqlitePool,
@@ -19,9 +22,12 @@ impl AppState {
 
     async fn init_db() -> anyhow::Result<SqlitePool> {
         // Create database connection pool
+        let connect_options = SqliteConnectOptions::new()
+            .filename("db.sqlite")
+            .create_if_missing(true);
         let db = SqlitePoolOptions::new()
             .max_connections(4)
-            .connect("sqlite::memory:")
+            .connect_with(connect_options)
             .await?;
 
         // Run database migrations

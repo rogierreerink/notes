@@ -72,23 +72,24 @@ pub fn decrypt(input: &[u8], key: &Jwk) -> Result<UserClaims, TokenDecryptionErr
         _ => TokenDecryptionError::Internal,
     })?;
 
-    // Create user claims
+    let header_claims = header.claims_set();
+    let payload_claims = payload.claims_set();
+
+    // Parse user claims
+    let session_id = Uuid::parse_str(get_required_claim(header_claims, "session_id")?)
+        .map_err(|e| TokenDecryptionError::InvalidClaim(anyhow::anyhow!("session_id: {}", e)))?;
+    let user_id = Uuid::parse_str(get_required_claim(header_claims, "user_id")?)
+        .map_err(|e| TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_id: {}", e)))?;
+    let user_key = *Key::<Aes256Gcm>::from_slice(
+        &BASE64_STANDARD
+            .decode(get_required_claim(payload_claims, "user_key")?)
+            .map_err(|e| TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_key: {}", e)))?,
+    );
+
     Ok(UserClaims {
-        session_id: Uuid::parse_str(get_required_claim(header.claims_set(), "session_id")?)
-            .map_err(|e| {
-                TokenDecryptionError::InvalidClaim(anyhow::anyhow!("session_id: {}", e))
-            })?,
-
-        user_id: Uuid::parse_str(get_required_claim(header.claims_set(), "user_id")?)
-            .map_err(|e| TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_id: {}", e)))?,
-
-        user_key: *Key::<Aes256Gcm>::from_slice(
-            &BASE64_STANDARD
-                .decode(get_required_claim(payload.claims_set(), "user_key")?)
-                .map_err(|e| {
-                    TokenDecryptionError::InvalidClaim(anyhow::anyhow!("user_key: {}", e))
-                })?,
-        ),
+        session_id,
+        user_id,
+        user_key,
     })
 }
 
