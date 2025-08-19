@@ -45,4 +45,10 @@
 	:global(p) {
 		margin: 0.8em 0;
 	}
+
+	.section,
+	.container,
+	.content {
+		height: 100%;
+	}
 </style>

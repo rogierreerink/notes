@@ -20,3 +20,18 @@ export type Note = {
 export function getNoteById(fetcher: typeof fetch, noteId: string) {
 	return api<Note>(fetcher, `/notes/${noteId}`);
 }
+
+export type UpsertNote = {
+	id: string;
+	markdown: string;
+};
+
+export function upsertNoteById(fetcher: typeof fetch, note: UpsertNote) {
+	return api<void>(fetcher, `/notes/${note.id}`, {
+		method: 'PUT',
+		headers: {
+			'content-type': 'application/json'
+		},
+		body: JSON.stringify(note)
+	});
+}

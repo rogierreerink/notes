@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::{extractors::auth::Auth, services, state::AppState};
 
-#[derive(Deserialize)]
-pub struct CreateOrUpdateNoteRequest {
+#[derive(Serialize, Deserialize)]
+pub struct CreateOrUpdateNote {
     markdown: String,
 }
 
@@ -20,7 +20,7 @@ pub async fn create_or_update_note(
     State(state): State<Arc<AppState>>,
     Auth(user_claims): Auth,
     Path(note_id): Path<Uuid>,
-    Json(payload): Json<CreateOrUpdateNoteRequest>,
+    Json(payload): Json<CreateOrUpdateNote>,
 ) -> Result<impl IntoResponse, StatusCode> {
     // Start database transaction
     let mut tx = state.db.begin().await.map_err(|e| {
@@ -58,7 +58,7 @@ pub async fn create_or_update_note(
             })?;
 
             // Update note
-            note.set_markdown(payload.markdown);
+            note.set_markdown(payload.markdown.clone());
 
             // Encrypt and store note
             services::notes::store(
@@ -79,7 +79,7 @@ pub async fn create_or_update_note(
 
         // Create new note
         Err(services::Error::NotFound) => {
-            let note = services::notes::DecryptedNote::new(note_id, payload.markdown);
+            let note = services::notes::DecryptedNote::new(note_id, payload.markdown.clone());
             let note_key = services::note_keys::DecryptedNoteKey::new();
 
             // Encrypt and store note
@@ -128,7 +128,7 @@ pub async fn create_or_update_note(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok(status)
+    Ok((status, Json(payload)))
 }
 
 #[derive(Serialize)]

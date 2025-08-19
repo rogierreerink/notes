@@ -9,3 +9,7 @@
 </script>
 
 {@html markdown_html}
+
+<div class="has-text-right">
+	<a class="button" href={`/${data.note.id}/edit`}> Edit </a>
+</div>
