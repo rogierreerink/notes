@@ -13,7 +13,7 @@ export const actions = {
 		fetch
 	}): Promise<ActionFailure<Error>> => {
 		if (!locals.session) {
-			return redirect(303, '/signup');
+			redirect(303, '/signup');
 		}
 
 		const payload = await request.formData();

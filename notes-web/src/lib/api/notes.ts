@@ -35,3 +35,9 @@ export function upsertNoteById(fetcher: typeof fetch, note: UpsertNote) {
 		body: JSON.stringify(note)
 	});
 }
+
+export function deleteNoteById(fetcher: typeof fetch, noteId: string) {
+	return api<void>(fetcher, `/notes/${noteId}`, {
+		method: 'DELETE'
+	});
+}

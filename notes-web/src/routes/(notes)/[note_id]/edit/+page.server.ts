@@ -26,14 +26,14 @@ export const actions = {
 		params,
 		locals,
 		fetch
-	}): Promise<undefined | ActionFailure<Error>> => {
+	}): Promise<ActionFailure<Error>> => {
 		if (!locals.session) {
-			return redirect(303, '/signup');
+			redirect(303, '/signup');
 		}
 
 		const id = params.note_id;
 		if (!id) {
-			return error(400, 'note id cannot be empty');
+			error(400, 'note id cannot be empty');
 		}
 
 		const payload = await request.formData();
@@ -49,10 +49,7 @@ export const actions = {
 			id,
 			markdown
 		});
-
 		if (!upsert_result.ok) {
-			console.log(upsert_result);
-
 			return fail(500, {
 				message: 'something went wrong'
 			});

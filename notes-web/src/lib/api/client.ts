@@ -24,7 +24,10 @@ export async function api<T>(
 
 		return {
 			ok: true,
-			data: await res.json()
+			data:
+				res.headers.get('content-type') === 'application/json'
+					? await res.json()
+					: undefined
 		};
 	} catch (e) {
 		return {
