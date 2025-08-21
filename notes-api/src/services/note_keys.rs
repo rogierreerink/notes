@@ -179,6 +179,7 @@ mod tests {
                 id: note_id,
                 encrypted_markdown: vec![1, 2, 3, 4],
                 nonce: vec![1, 2, 3, 4],
+                time_created: None,
             },
         )
         .await

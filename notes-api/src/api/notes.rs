@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -140,7 +141,7 @@ pub struct GetNotesResponse {
 pub struct GetNotesResource {
     id: Uuid,
     title: Option<String>,
-    // markdown: String,
+    time_created: Option<DateTime<Utc>>,
 }
 
 pub async fn get_notes(
@@ -185,7 +186,7 @@ pub async fn get_notes(
         notes.push(GetNotesResource {
             id: link.note_id,
             title: note.title().map(str::to_string),
-            // markdown: note.markdown().to_string(),
+            time_created: *note.time_created(),
         });
     }
 
@@ -203,6 +204,7 @@ pub struct GetNoteResponse {
     id: Uuid,
     title: Option<String>,
     markdown: String,
+    time_created: Option<DateTime<Utc>>,
 }
 
 pub async fn get_note(
@@ -266,6 +268,7 @@ pub async fn get_note(
         id: note_id,
         title: note.title().map(str::to_string),
         markdown: note.markdown().to_string(),
+        time_created: *note.time_created(),
     }))
 }
 

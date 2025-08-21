@@ -55,9 +55,17 @@ where
 {
     Ok(sqlx::query_as(
         r#"
-        SELECT id, note_id, user_id, encrypted_key, nonce
+        SELECT
+            note_keys.id,
+            note_keys.note_id,
+            note_keys.user_id,
+            note_keys.encrypted_key,
+            note_keys.nonce
         FROM note_keys
+            LEFT JOIN notes
+                ON note_keys.note_id = notes.id
         WHERE user_id = ?1
+        ORDER BY notes.time_created DESC
         "#,
     )
     .bind(user_id)

@@ -2,6 +2,7 @@ use aes_gcm::{
     AeadCore, Aes256Gcm, Key, KeyInit, Nonce,
     aead::{Aead, OsRng},
 };
+use chrono::{DateTime, Utc};
 use sqlx::SqliteExecutor;
 use uuid::Uuid;
 
@@ -11,11 +12,16 @@ use crate::{db, services, utilities::notes::get_title};
 pub struct DecryptedNote {
     id: Uuid,
     markdown: String,
+    time_created: Option<DateTime<Utc>>,
 }
 
 impl DecryptedNote {
     pub fn new(id: Uuid, markdown: String) -> Self {
-        Self { id, markdown }
+        Self {
+            id,
+            markdown,
+            time_created: None,
+        }
     }
 
     pub fn id(&self) -> &Uuid {
@@ -34,6 +40,10 @@ impl DecryptedNote {
         self.markdown = markdown;
     }
 
+    pub fn time_created(&self) -> &Option<DateTime<Utc>> {
+        &self.time_created
+    }
+
     pub fn encrypt(&self, note_key: &Key<Aes256Gcm>) -> services::Result<EncryptedNote> {
         let markdown_nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let markdown_ciphertext = Aes256Gcm::new(note_key)
@@ -44,6 +54,7 @@ impl DecryptedNote {
             id: self.id,
             encrypted_markdown: markdown_ciphertext,
             nonce: markdown_nonce.to_vec(),
+            time_created: self.time_created,
         })
     }
 }
@@ -53,6 +64,7 @@ pub struct EncryptedNote {
     id: Uuid,
     encrypted_markdown: Vec<u8>,
     nonce: Vec<u8>,
+    time_created: Option<DateTime<Utc>>,
 }
 
 impl EncryptedNote {
@@ -65,6 +77,7 @@ impl EncryptedNote {
         Ok(DecryptedNote {
             id: self.id,
             markdown: String::from_utf8(markdown_buf)?,
+            time_created: self.time_created,
         })
     }
 }
@@ -80,6 +93,7 @@ where
             id: note.id,
             encrypted_markdown: note.encrypted_markdown,
             nonce: note.nonce,
+            time_created: None,
         },
     )
     .await?;
@@ -98,6 +112,7 @@ where
         id: note.id,
         encrypted_markdown: note.encrypted_markdown,
         nonce: note.nonce,
+        time_created: note.time_created,
     })
 }
 
@@ -130,18 +145,22 @@ mod tests {
             id: Uuid::new_v4(),
             encrypted_markdown: vec![0, 1, 2, 3],
             nonce: vec![3, 2, 1, 0],
+            time_created: None,
         };
 
         services::notes::store(&pool, encrypted_note.clone())
             .await
             .expect("failed to store note");
 
+        let inserted = services::notes::get_by_id(&pool, &encrypted_note.id)
+            .await
+            .expect("failed to get note");
+        assert_eq!(inserted.id, encrypted_note.id);
         assert_eq!(
-            services::notes::get_by_id(&pool, &encrypted_note.id)
-                .await
-                .expect("failed to get note by id"),
-            encrypted_note,
+            inserted.encrypted_markdown,
+            encrypted_note.encrypted_markdown
         );
+        assert_eq!(inserted.nonce, encrypted_note.nonce);
     }
 
     #[tokio::test]
