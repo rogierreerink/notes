@@ -8,12 +8,12 @@
 	<!-- Sidebar class:is-active={note.id === page.params.id} -->
 	<aside class="column is-3" style="border-right: 1px solid hsl(0, 0%, 20%);">
 		<nav class="panel" style="box-shadow: none;">
-			<a class="panel-block" href={'/create'} data-sveltekit-reload>
+			<a class="panel-block" href={'/create'}>
 				<i>+ create note</i>
 			</a>
 
 			{#each data.notes as note (note.id)}
-				<a class="panel-block" href={`/${note.id}`} data-sveltekit-reload>
+				<a class="panel-block" href={`/${note.id}`}>
 					<span class="panel-icon">
 						<i class="fas fa-sticky-note" aria-hidden="true"></i>
 					</span>
