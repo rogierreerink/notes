@@ -8,6 +8,10 @@
 	<!-- Sidebar class:is-active={note.id === page.params.id} -->
 	<aside class="column is-3" style="border-right: 1px solid hsl(0, 0%, 20%);">
 		<nav class="panel" style="box-shadow: none;">
+			<a class="panel-block" href={'/create'} data-sveltekit-reload>
+				<i>+ create note</i>
+			</a>
+
 			{#each data.notes as note (note.id)}
 				<a class="panel-block" href={`/${note.id}`} data-sveltekit-reload>
 					<span class="panel-icon">
