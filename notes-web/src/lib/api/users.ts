@@ -26,8 +26,6 @@ export async function createUser(fetcher: typeof fetch, user: CreateUser) {
 	});
 }
 
-export type Password = object;
-
 export type CreatePassword = {
 	password: string;
 };
@@ -37,7 +35,7 @@ export async function setUserPassword(
 	userId: string,
 	password: CreatePassword
 ) {
-	return await api<Password>(fetcher, `/users/${userId}/password`, {
+	return await api<void>(fetcher, `/users/${userId}/password`, {
 		method: 'PUT',
 		headers: {
 			'content-type': 'application/json'

@@ -93,9 +93,6 @@ pub struct CreateOrUpdateUserPasswordRequest {
     password: String,
 }
 
-#[derive(Serialize)]
-pub struct CreateOrUpdateUserPasswordResponse {}
-
 pub async fn create_or_update_user_password(
     State(state): State<Arc<AppState>>,
     Auth(user_claims): Auth,
@@ -140,8 +137,5 @@ pub async fn create_or_update_user_password(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(CreateOrUpdateUserPasswordResponse {}),
-    ))
+    Ok(StatusCode::CREATED)
 }
