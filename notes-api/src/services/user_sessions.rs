@@ -70,6 +70,16 @@ where
         })?)
 }
 
+pub async fn delete<'e, E>(executor: E, session_id: &Uuid) -> services::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
+    // Delete user session from database
+    db::user_sessions::delete_by_id(executor, session_id).await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Duration;

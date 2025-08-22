@@ -43,3 +43,15 @@ export async function setUserPassword(
 		body: JSON.stringify(password)
 	});
 }
+
+export async function deleteUserSession(
+	fetcher: typeof fetch,
+	userId: string,
+	userSessionId: string
+) {
+	return await api<void>(
+		fetcher,
+		`/users/${userId}/sessions/${userSessionId}`,
+		{ method: 'DELETE' }
+	);
+}

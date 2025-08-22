@@ -139,3 +139,43 @@ pub async fn create_or_update_user_password(
 
     Ok(StatusCode::CREATED)
 }
+
+pub async fn delete_user_session(
+    State(state): State<Arc<AppState>>,
+    Auth(user_claims): Auth,
+    Path((user_id, session_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, StatusCode> {
+    // Authorize user
+    if &user_id != user_claims.user_id() {
+        println!("access denied");
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Start database transaction
+    let mut tx = state.db.begin().await.map_err(|e| {
+        println!("failed to start transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Delete the user session
+    services::user_sessions::delete(&mut *tx, &session_id)
+        .await
+        .map_err(|e| match e {
+            services::Error::NotFound => {
+                println!("access denied");
+                StatusCode::FORBIDDEN
+            }
+            _ => {
+                println!("failed to delete user session: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        })?;
+
+    // Commit database transaction
+    tx.commit().await.map_err(|e| {
+        println!("failed to commit transaction: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(StatusCode::OK)
+}

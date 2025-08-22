@@ -46,13 +46,37 @@ where
     .await?)
 }
 
+pub async fn delete_by_id<'e, E>(executor: E, id: &Uuid) -> db::Result<()>
+where
+    E: SqliteExecutor<'e>,
+{
+    match sqlx::query(
+        r#"
+        DELETE FROM user_sessions
+        WHERE id = ?1
+        "#,
+    )
+    .bind(id)
+    .execute(executor)
+    .await?
+    .rows_affected()
+    {
+        x if x < 1 => Err(db::Error::NotFound),
+        x if x > 1 => Err(db::Error::TooMany),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
     use utilities::db::init_db;
     use uuid::Uuid;
 
-    use crate::db::user_sessions::{self, UserSessionRow};
+    use crate::db::{
+        self,
+        user_sessions::{self, UserSessionRow},
+    };
 
     #[tokio::test]
     async fn create() {
@@ -141,6 +165,54 @@ mod tests {
                 user_id,
                 expiration_time
             }
+        )
+    }
+
+    #[tokio::test]
+    async fn delete_by_id() {
+        let pool = init_db().await;
+
+        // Populate database
+
+        let user_id = Uuid::new_v4();
+        let username = "test".to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, username)
+            VALUES (?1, ?2)
+            "#,
+        )
+        .bind(&user_id)
+        .bind(&username)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user");
+
+        let id = Uuid::new_v4();
+        let expiration_time = DateTime::from_timestamp(0, 0);
+        sqlx::query(
+            r#"
+            INSERT INTO user_sessions (id, user_id, expiration_time)
+            VALUES (?1, ?2, ?3)
+            "#,
+        )
+        .bind(&id)
+        .bind(&user_id)
+        .bind(&expiration_time)
+        .execute(&pool)
+        .await
+        .expect("failed to insert user session");
+
+        // Perform test
+
+        user_sessions::delete_by_id(&pool, &id)
+            .await
+            .expect("failed to delete note by id");
+
+        assert!(
+            user_sessions::get_by_id(&pool, &id)
+                .await
+                .is_err_and(|e| matches!(e, db::Error::NotFound))
         )
     }
 }
