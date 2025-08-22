@@ -6,19 +6,14 @@
 
 <div class="app">
 	<nav
-		class="navbar"
 		aria-label="main navigation"
 		style="border-bottom: 1px solid hsl(0, 0%, 20%);"
 	>
-		<form method="POST" class="navbar-menu">
-			<div class="navbar-end">
-				<div class="navbar-item">
-					<div class="buttons">
-						<button class="button is-small" formaction="/signout">
-							Sign out
-						</button>
-					</div>
-				</div>
+		<form method="POST">
+			<div class="buttons p-2">
+				<button class="button is-small" formaction="/signout">
+					Sign out
+				</button>
 			</div>
 		</form>
 	</nav>
@@ -78,6 +73,10 @@
 
 	.main {
 		flex: 1;
+	}
+
+	.buttons {
+		float: right;
 	}
 
 	.section,
